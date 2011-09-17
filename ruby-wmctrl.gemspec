@@ -8,8 +8,8 @@ Gem::Specification.new do |s|
   s.authors     = ["Takayuki YAMAGUCHI"]
   s.email       = ["d@ytak.info"]
   s.homepage    = ""
-  s.summary     = "Ruby binding to control windows"
-  s.description = "Ruby binding to control windows in EWMH and NetWM compatible X Window manager, which is created from source code of wmctrl command."
+  s.summary     = "Ruby bindings to control windows"
+  s.description = "Ruby bindings to control windows in EWMH and NetWM compatible X Window manager, which is created from source code of wmctrl command."
 
   s.rubyforge_project = "ruby-wmctrl"
 
