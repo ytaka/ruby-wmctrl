@@ -7,3 +7,5 @@ ext/*.so
 ext/*.o
 ext/Makefile
 ext/mkmf.log
+doc
+.yardoc
