@@ -8,8 +8,8 @@ Gem::Specification.new do |s|
   s.authors     = ["Takayuki YAMAGUCHI"]
   s.email       = ["d@ytak.info"]
   s.homepage    = ""
-  s.summary     = "Ruby binding to control window manager"
-  s.description = "Ruby binding to control window manager"
+  s.summary     = "Ruby binding to control windows"
+  s.description = "Ruby binding to control windows in EWMH and NetWM compatible X Window manager, which is created from source code of wmctrl command."
 
   s.rubyforge_project = "ruby-wmctrl"
 
@@ -22,5 +22,5 @@ Gem::Specification.new do |s|
   # specify any dependencies here; for example:
   s.add_development_dependency "rspec"
   s.add_development_dependency "yard"
-  # s.add_runtime_dependency "rest-client"
+  s.add_runtime_dependency "pkg-config"
 end
