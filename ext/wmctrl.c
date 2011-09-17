@@ -26,8 +26,32 @@
 
 #define envir_utf8 TRUE
 
+static int client_msg(Display *disp, Window win, const char *msg,
+		      unsigned long data0, unsigned long data1,
+		      unsigned long data2, unsigned long data3,
+		      unsigned long data4);
+static gchar *get_property (Display *disp, Window win,
+			    Atom xa_prop_type, const gchar *prop_name, unsigned long *size);
+static Window *get_client_list (Display *disp, unsigned long *size);
+static gchar *get_window_class (Display *disp, Window win);
+static gchar *get_window_title (Display *disp, Window win);
+static int activate_window (Display *disp, Window win, gboolean switch_desktop);
+static int close_window (Display *disp, Window win);
+static gboolean wm_supports (Display *disp, const gchar *prop);
+static int window_move_resize (Display *disp, Window win, signed long grav,
+			       signed long x, signed long y, signed long w, signed long h);
+static int window_state (Display *disp, Window win,
+			 const char *action_str, const char *prop1_str, const char *prop2_str);
+static int window_to_desktop (Display *disp, Window win, int desktop);
+static void window_set_title (Display *disp, Window win, char *title, char mode);
+static int action_window (Display *disp, Window win, char mode, int argc, VALUE *argv);
+static Window Select_Window(Display *dpy);
+static Window get_active_window(Display *disp);
+static Window get_target_window (Display *disp, VALUE obj);
+
+
 static VALUE rb_wmctrl_class, key_id, key_title, key_pid, key_geometry,
-  key_class, key_client_machine, key_desktop,
+  key_active, key_class, key_client_machine, key_desktop,
   key_viewport, key_workarea, key_current, key_showing_desktop, key_name;
 
 static ID id_select, id_active, id_activate, id_close, id_move_resize,
@@ -59,7 +83,8 @@ static VALUE rb_wmctrl_initialize(int argc, VALUE *argv, VALUE self)
 static int client_msg(Display *disp, Window win, const char *msg,
 		      unsigned long data0, unsigned long data1,
 		      unsigned long data2, unsigned long data3,
-		      unsigned long data4) {
+		      unsigned long data4)
+{
   XEvent event;
   long mask = SubstructureRedirectMask | SubstructureNotifyMask;
 
@@ -84,7 +109,8 @@ static int client_msg(Display *disp, Window win, const char *msg,
 
 /* Copy from debian package for 64bit support. */
 static gchar *get_property (Display *disp, Window win,
-			    Atom xa_prop_type, const gchar *prop_name, unsigned long *size) {
+			    Atom xa_prop_type, const gchar *prop_name, unsigned long *size)
+{
   Atom xa_prop_name;
   Atom xa_ret_type;
   int ret_format;
@@ -140,7 +166,8 @@ static gchar *get_property (Display *disp, Window win,
   return ret;
 }
 
-static Window *get_client_list (Display *disp, unsigned long *size) {
+static Window *get_client_list (Display *disp, unsigned long *size)
+{
   Window *client_list;
 
   if ((client_list = (Window *)get_property(disp, DefaultRootWindow(disp),
@@ -157,7 +184,8 @@ static Window *get_client_list (Display *disp, unsigned long *size) {
   return client_list;
 }
 
-static gchar *get_window_class (Display *disp, Window win) {
+static gchar *get_window_class (Display *disp, Window win)
+{
   gchar *class_utf8;
   gchar *wm_class;
   unsigned long size;
@@ -179,7 +207,8 @@ static gchar *get_window_class (Display *disp, Window win) {
   return class_utf8;
 }
 
-static gchar *get_window_title (Display *disp, Window win) {
+static gchar *get_window_title (Display *disp, Window win)
+{
   gchar *title_utf8;
   gchar *wm_name;
   gchar *net_wm_name;
@@ -209,6 +238,7 @@ static gchar *get_window_title (Display *disp, Window win) {
 static VALUE rb_wmctrl_list_windows (VALUE self) {
   Display **ptr, *disp;
   Window *client_list;
+  Window window_active;
   unsigned long client_list_size;
   unsigned int i;
   VALUE window_ary;
@@ -221,6 +251,7 @@ static VALUE rb_wmctrl_list_windows (VALUE self) {
     return Qfalse;
   }
 
+  window_active = get_active_window(disp);
   window_ary = rb_ary_new2(client_list_size);
 
   for (i = 0; i < client_list_size / sizeof(Window); i++) {
@@ -239,6 +270,12 @@ static VALUE rb_wmctrl_list_windows (VALUE self) {
     rb_hash_aset(window_obj, key_id, INT2NUM(client_list[i]));
     rb_hash_aset(window_obj, key_title, (title_utf8 ? RB_UTF8_STRING_NEW2(title_utf8) : Qnil));
     rb_hash_aset(window_obj, key_class, (class_out ? RB_UTF8_STRING_NEW2(class_out) : Qnil));
+
+    if (window_active == client_list[i]) {
+      rb_hash_aset(window_obj, key_active, Qtrue);
+    } else {
+      rb_hash_aset(window_obj, key_active, Qnil);
+    }
 
     /* desktop ID */
     if ((desktop = (unsigned long *)get_property(disp, client_list[i],
@@ -631,7 +668,8 @@ static VALUE rb_wmctrl_change_number_of_desktops (VALUE self, VALUE num) {
   return Qtrue;
 }
 
-static int activate_window (Display *disp, Window win, gboolean switch_desktop) {
+static int activate_window (Display *disp, Window win, gboolean switch_desktop)
+{
   unsigned long *desktop;
 
   /* desktop ID */
@@ -658,11 +696,13 @@ static int activate_window (Display *disp, Window win, gboolean switch_desktop) 
   return True;
 }
 
-static int close_window (Display *disp, Window win) {
+static int close_window (Display *disp, Window win)
+{
   return client_msg(disp, win, "_NET_CLOSE_WINDOW", 0, 0, 0, 0, 0);
 }
 
-static gboolean wm_supports (Display *disp, const gchar *prop) {
+static gboolean wm_supports (Display *disp, const gchar *prop)
+{
   Atom xa_prop = XInternAtom(disp, prop, False);
   Atom *list;
   unsigned long size;
@@ -686,7 +726,8 @@ static gboolean wm_supports (Display *disp, const gchar *prop) {
 }
 
 static int window_move_resize (Display *disp, Window win, signed long grav,
-			       signed long x, signed long y, signed long w, signed long h) {
+			       signed long x, signed long y, signed long w, signed long h)
+{
   unsigned long grflags;
   grflags = grav;
   if (x != -1) grflags |= (1 << 8);
@@ -716,7 +757,8 @@ static int window_move_resize (Display *disp, Window win, signed long grav,
 }
 
 static int window_state (Display *disp, Window win,
-			 const char *action_str, const char *prop1_str, const char *prop2_str) {
+			 const char *action_str, const char *prop1_str, const char *prop2_str)
+{
   unsigned long action;
   Atom prop1 = 0;
   Atom prop2 = 0;
@@ -754,7 +796,8 @@ static int window_state (Display *disp, Window win,
   return client_msg(disp, win, "_NET_WM_STATE", action, (unsigned long)prop1, (unsigned long)prop2, 0, 0);
 }
 
-static int window_to_desktop (Display *disp, Window win, int desktop) {
+static int window_to_desktop (Display *disp, Window win, int desktop)
+{
   unsigned long *cur_desktop = NULL;
   Window root = DefaultRootWindow(disp);
 
@@ -776,7 +819,8 @@ static int window_to_desktop (Display *disp, Window win, int desktop) {
   return client_msg(disp, win, "_NET_WM_DESKTOP", (unsigned long)desktop, 0, 0, 0, 0);
 }
 
-static void window_set_title (Display *disp, Window win, char *title, char mode) {
+static void window_set_title (Display *disp, Window win, char *title, char mode)
+{
   gchar *title_utf8;
   gchar *title_local;
 
@@ -823,7 +867,8 @@ static void window_set_title (Display *disp, Window win, char *title, char mode)
   g_free(title_local);
 }
 
-static int action_window (Display *disp, Window win, char mode, int argc, VALUE *argv) {
+static int action_window (Display *disp, Window win, char mode, int argc, VALUE *argv)
+{
   p_verbose("Using window: 0x%.8lx\n", win);
   switch (mode) {
   case 'a':
@@ -887,7 +932,8 @@ static int action_window (Display *disp, Window win, char mode, int argc, VALUE 
   rb_raise(rb_eArgError, "Invalid argument of action_window.");
 }
 
-static Window Select_Window(Display *dpy) {
+static Window Select_Window(Display *dpy)
+{
   /*
    * Routine to let user select a window using the mouse
    * Taken from xfree86.
@@ -943,7 +989,8 @@ static Window Select_Window(Display *dpy) {
   return(target_win);
 }
 
-static Window get_active_window(Display *disp) {
+static Window get_active_window(Display *disp)
+{
   char *prop;
   unsigned long size;
   Window ret = (Window)0;
@@ -957,7 +1004,8 @@ static Window get_active_window(Display *disp) {
   return(ret);
 }
 
-static Window get_target_window (Display *disp, VALUE obj) {
+static Window get_target_window (Display *disp, VALUE obj)
+{
   Window wid = 0;
   switch (TYPE(obj)) {
   case T_FIXNUM:
@@ -1101,7 +1149,8 @@ void Init_wmctrl()
   key_id = ID2SYM(rb_intern("id"));
   key_title = ID2SYM(rb_intern("title"));
   key_pid = ID2SYM(rb_intern("pid"));
-  key_geometry = ID2SYM(rb_intern("geometory"));
+  key_geometry = ID2SYM(rb_intern("geometry"));
+  key_active = ID2SYM(rb_intern("active"));
   key_class = ID2SYM(rb_intern("class"));
   key_client_machine = ID2SYM(rb_intern("client_machine"));
   key_desktop = ID2SYM(rb_intern("desktop"));
