@@ -235,6 +235,7 @@ static gchar *get_window_title (Display *disp, Window win)
   return title_utf8;
 }
 
+/* Get list of information of windows. */
 static VALUE rb_wmctrl_list_windows (VALUE self) {
   Display **ptr, *disp;
   Window *client_list;
@@ -314,6 +315,7 @@ static VALUE rb_wmctrl_list_windows (VALUE self) {
   return window_ary;
 }
 
+/* Get list of information of desktops. */
 static VALUE rb_wmctrl_list_desktops (VALUE self) {
   Display **ptr, *disp;
   unsigned long *num_desktops = NULL;
@@ -535,6 +537,7 @@ static VALUE rb_wmctrl_list_desktops (VALUE self) {
   return ret;
 }
 
+/* Switch desktop. */
 static VALUE rb_wmctrl_switch_desktop (VALUE self, VALUE desktop_id) {
   int target;
   Display **ptr, *disp;
@@ -549,6 +552,7 @@ static VALUE rb_wmctrl_switch_desktop (VALUE self, VALUE desktop_id) {
   return Qtrue;
 }
 
+/* Get hash of information of window manager. */
 static VALUE rb_wmctrl_info (VALUE self) {
   Display **ptr, *disp;
   Window *sup_window = NULL;
@@ -619,6 +623,7 @@ static VALUE rb_wmctrl_info (VALUE self) {
   return ret;
 }
 
+/* Minimize windows to show desktop. */
 static VALUE rb_wmctrl_showing_desktop (VALUE self, VALUE state) {
   Display **ptr, *disp;
   Data_Get_Struct(self, Display*, ptr);
@@ -655,6 +660,7 @@ static VALUE rb_wmctrl_change_geometry (VALUE self, VALUE xnum, VALUE ynum) {
   return Qtrue;
 }
 
+/* Change number of desktops. */
 static VALUE rb_wmctrl_change_number_of_desktops (VALUE self, VALUE num) {
   long n;
   Display **ptr, *disp;
@@ -1089,6 +1095,19 @@ static Window get_target_window (Display *disp, VALUE obj)
 /*   return activate; */
 /* } */
 
+/*
+  call-seq:
+  wm.action_window(wid, :close)
+  wm.action_window(wid, :move_resize, grav, x, y, w, h)
+  wm.action_window(wid, :change_state, add, prop1, prop2 = nil)
+  wm.action_window(wid, :change_state, remove, prop1, prop2 = nil)
+  wm.action_window(wid, :change_state, toggle, prop1, prop2 = nil)
+  wm.action_window(wid, :move_to_desktop, desktop_id)
+  wm.action_window(wid, :move_to_current)
+  wm.action_window(wid, :set_title_long, str)
+  wm.action_window(wid, :set_title_short, str)
+  wm.action_window(wid, :set_title_both, str)
+*/
 static VALUE rb_wmctrl_action_window(int argc, VALUE *argv, VALUE self) {
   Window wid;
   int mode;
