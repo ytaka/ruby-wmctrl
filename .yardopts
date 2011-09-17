@@ -1,0 +1,6 @@
+-m
+markdown
+lib/**/*.rb
+ext/**/*.c
+- 
+COPYING
