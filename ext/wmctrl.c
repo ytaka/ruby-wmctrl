@@ -1148,6 +1148,32 @@ static VALUE rb_wmctrl_action_window(int argc, VALUE *argv, VALUE self) {
   }
 }
 
+static VALUE rb_wmctrl_supported (VALUE self)
+{
+  Atom *list;
+  unsigned long size;
+  unsigned int i;
+  gchar *prop_name;
+  VALUE ret;
+  Display **ptr, *disp;
+  Data_Get_Struct(self, Display*, ptr);
+  disp = *ptr;
+
+  
+  if (!(list = (Atom *)get_property(disp, DefaultRootWindow(disp), XA_ATOM, "_NET_SUPPORTED", &size))) {
+    rb_raise(rb_eStandardError, "Cannot get _NET_SUPPORTED property.");
+  }
+
+  ret = rb_ary_new();
+  for (i = 0; i < size / sizeof(Atom); i++) {
+    prop_name = XGetAtomName(disp, list[i]);
+    rb_ary_push(ret, rb_str_new2(prop_name));
+    g_free(prop_name);
+  }
+  g_free(list);
+  return ret;
+}
+
 void Init_wmctrl()
 {
   rb_wmctrl_class = rb_define_class("WMCtrl", rb_cObject);
@@ -1164,6 +1190,7 @@ void Init_wmctrl()
   rb_define_method(rb_wmctrl_class, "change_geometry", rb_wmctrl_change_geometry, 0);
   rb_define_method(rb_wmctrl_class, "change_number_of_desktops", rb_wmctrl_change_number_of_desktops, 1);
   rb_define_method(rb_wmctrl_class, "action_window", rb_wmctrl_action_window, -1);
+  rb_define_method(rb_wmctrl_class, "supported", rb_wmctrl_supported, 0);
 
   key_id = ID2SYM(rb_intern("id"));
   key_title = ID2SYM(rb_intern("title"));
