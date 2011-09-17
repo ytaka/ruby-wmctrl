@@ -1,3 +1,4 @@
+$:.unshift(File.expand_path(File.join(File.dirname(__FILE__), "../ext")))
 require 'wmctrl'
 require 'pp'
 
