@@ -4,7 +4,7 @@ require "wmctrl/version"
 
 Gem::Specification.new do |s|
   s.name        = "ruby-wmctrl"
-  s.version     = Ruby::WMCtrl::VERSION
+  s.version     = WMCtrl::VERSION
   s.authors     = ["Takayuki YAMAGUCHI"]
   s.email       = ["d@ytak.info"]
   s.homepage    = ""
