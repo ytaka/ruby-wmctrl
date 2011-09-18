@@ -52,7 +52,8 @@ static Window get_target_window (Display *disp, VALUE obj);
 
 static VALUE rb_wmctrl_class, key_id, key_title, key_pid, key_geometry,
   key_active, key_class, key_client_machine, key_desktop,
-  key_viewport, key_workarea, key_current, key_showing_desktop, key_name;
+  key_viewport, key_workarea, key_current, key_showing_desktop, key_name,
+  key_state, key_frame_extents, key_strut;
 
 static ID id_select, id_active, id_activate, id_close, id_move_resize,
   id_change_state, id_move_to_desktop, id_move_to_current,
@@ -235,17 +236,25 @@ static gchar *get_window_title (Display *disp, Window win)
   return title_utf8;
 }
 
-/* Get list of information of windows. */
-static VALUE rb_wmctrl_list_windows (VALUE self) {
+/*
+  call-seq:
+    wm.list_windows(get_state = nil)
+
+  Get list of information of windows.
+  @param get_state [Boolean] If the value is true then we get some properties at the same time
+*/
+static VALUE rb_wmctrl_list_windows (int argc, VALUE *argv, VALUE self) {
   Display **ptr, *disp;
   Window *client_list;
   Window window_active;
   unsigned long client_list_size;
   unsigned int i;
-  VALUE window_ary;
-
+  int get_state;
+  VALUE get_state_obj, window_ary;
   Data_Get_Struct(self, Display*, ptr);
   disp = *ptr;
+  rb_scan_args(argc, argv, "01", &get_state_obj);
+  get_state = RTEST(get_state_obj);
 
   if ((client_list = get_client_list(disp, &client_list_size)) == NULL) {
     /* return EXIT_FAILURE; */
@@ -260,14 +269,8 @@ static VALUE rb_wmctrl_list_windows (VALUE self) {
     gchar *title_utf8 = get_window_title(disp, client_list[i]); /* UTF8 */
     gchar *client_machine;
     gchar *class_out = get_window_class(disp, client_list[i]); /* UTF8 */
-    unsigned long *pid;
     unsigned long *desktop;
-    int x, y, junkx, junky;
-    unsigned int wwidth, wheight, bw, depth;
-    Window junkroot;
 
-    /* Use strings of hexadecimal number? At the present we use simply integers. */
-    /* printf("0x%.8lx", client_list[i]); */
     rb_hash_aset(window_obj, key_id, INT2NUM(client_list[i]));
     rb_hash_aset(window_obj, key_title, (title_utf8 ? RB_UTF8_STRING_NEW2(title_utf8) : Qnil));
     rb_hash_aset(window_obj, key_class, (class_out ? RB_UTF8_STRING_NEW2(class_out) : Qnil));
@@ -291,16 +294,79 @@ static VALUE rb_wmctrl_list_windows (VALUE self) {
     client_machine = get_property(disp, client_list[i], XA_STRING, "WM_CLIENT_MACHINE", NULL);
     rb_hash_aset(window_obj, key_client_machine, (client_machine ? RB_UTF8_STRING_NEW2(client_machine) : Qnil));
 
-    /* pid */
-    pid = (unsigned long *)get_property(disp, client_list[i], XA_CARDINAL, "_NET_WM_PID", NULL);
-    rb_hash_aset(window_obj, key_pid, (pid ? ULONG2NUM(*pid) : Qnil));
+    if (get_state) {
+      unsigned long *pid;
+      int x, y, junkx, junky;
+      unsigned long j;
+      unsigned int wwidth, wheight, bw, depth;
+      Window junkroot;
+      unsigned long state_size;
+      Atom *window_state;
+      gchar *state_name;
+      VALUE state_ary;
+      Atom *extents;
+      unsigned long extents_size;
+      VALUE extents_ary;
+      Atom *strut;
+      unsigned long strut_size;
+      VALUE strut_ary;
 
-    /* geometry */
-    XGetGeometry (disp, client_list[i], &junkroot, &junkx, &junky, &wwidth, &wheight, &bw, &depth);
-    XTranslateCoordinates (disp, client_list[i], junkroot, junkx, junky, &x, &y, &junkroot);
+      /* pid */
+      pid = (unsigned long *)get_property(disp, client_list[i], XA_CARDINAL, "_NET_WM_PID", NULL);
+      rb_hash_aset(window_obj, key_pid, (pid ? ULONG2NUM(*pid) : Qnil));
+      g_free(pid);
 
-    rb_hash_aset(window_obj, key_geometry,
-		 rb_ary_new3(4, INT2NUM(x), INT2NUM(y), INT2NUM(wwidth), INT2NUM(wheight)));
+      /* geometry */
+      XGetGeometry (disp, client_list[i], &junkroot, &junkx, &junky, &wwidth, &wheight, &bw, &depth);
+      XTranslateCoordinates (disp, client_list[i], junkroot, junkx, junky, &x, &y, &junkroot);
+
+      rb_hash_aset(window_obj, key_geometry,
+		   rb_ary_new3(4, INT2NUM(x), INT2NUM(y), INT2NUM(wwidth), INT2NUM(wheight)));
+
+      /* state */
+      if ((window_state = (Atom *)get_property(disp, client_list[i],
+					       XA_ATOM, "_NET_WM_STATE", &state_size)) != NULL) {
+	state_ary = rb_ary_new();
+	for (j = 0; j < state_size / sizeof(Atom); j++) {
+	  state_name = XGetAtomName(disp, window_state[j]);
+	  rb_ary_push(state_ary, rb_str_new2(state_name));
+	  g_free(state_name);
+	}
+	g_free(window_state);
+      } else {
+	state_ary = Qnil;
+      }
+      rb_hash_aset(window_obj, key_state, state_ary);
+
+      /* frame extents */
+      if ((extents = (unsigned long *)get_property(disp, client_list[i],
+      						   XA_CARDINAL, "_NET_FRAME_EXTENTS", &extents_size)) != NULL) {
+	extents_ary = rb_ary_new();
+      	for (j = 0; j < extents_size / sizeof(unsigned long); j++) {
+      	  rb_ary_push(extents_ary, ULONG2NUM(extents[j]));
+      	}
+      	g_free(extents);
+      } else {
+      	extents_ary = Qnil;
+      }
+      rb_hash_aset(window_obj, key_frame_extents, extents_ary);
+
+      /* strut partial or strut */
+      if ((strut = (unsigned long *)get_property(disp, client_list[i],
+						 XA_CARDINAL, "_NET_WM_STRUT_PARTIAL", &strut_size)) == NULL) {
+	strut = (unsigned long *)get_property(disp, client_list[i], XA_CARDINAL, "_NET_WM_STRUT", &strut_size);
+      }
+      if (strut) {
+	strut_ary = rb_ary_new();
+      	for (j = 0; j < strut_size / sizeof(unsigned long); j++) {
+      	  rb_ary_push(strut_ary, ULONG2NUM(strut[j]));
+      	}
+      	g_free(strut);
+      } else {
+      	strut_ary = Qnil;
+      }
+      rb_hash_aset(window_obj, key_strut, strut_ary);
+    }
 
     rb_ary_push(window_ary, window_obj);
 
@@ -308,7 +374,6 @@ static VALUE rb_wmctrl_list_windows (VALUE self) {
     g_free(desktop);
     g_free(client_machine);
     g_free(class_out);
-    g_free(pid);
   }
   g_free(client_list);
 
@@ -1097,16 +1162,24 @@ static Window get_target_window (Display *disp, VALUE obj)
 
 /*
   call-seq:
-  wm.action_window(wid, :close)
-  wm.action_window(wid, :move_resize, grav, x, y, w, h)
-  wm.action_window(wid, :change_state, add, prop1, prop2 = nil)
-  wm.action_window(wid, :change_state, remove, prop1, prop2 = nil)
-  wm.action_window(wid, :change_state, toggle, prop1, prop2 = nil)
-  wm.action_window(wid, :move_to_desktop, desktop_id)
-  wm.action_window(wid, :move_to_current)
-  wm.action_window(wid, :set_title_long, str)
-  wm.action_window(wid, :set_title_short, str)
-  wm.action_window(wid, :set_title_both, str)
+    wm.action_window(wid, cmd, *args)
+  
+  Manage windows.
+  @param wid Window ID
+  @param cmd [Symbol] Symbol of command
+  @param args [Array] Arguments for the command
+  
+  @example
+    wm.action_window(wid, :close)
+    wm.action_window(wid, :move_resize, grav, x, y, w, h)
+    wm.action_window(wid, :change_state, add, prop1, prop2 = nil)
+    wm.action_window(wid, :change_state, remove, prop1, prop2 = nil)
+    wm.action_window(wid, :change_state, toggle, prop1, prop2 = nil)
+    wm.action_window(wid, :move_to_desktop, desktop_id)
+    wm.action_window(wid, :move_to_current)
+    wm.action_window(wid, :set_title_long, str)
+    wm.action_window(wid, :set_title_short, str)
+    wm.action_window(wid, :set_title_both, str)
 */
 static VALUE rb_wmctrl_action_window(int argc, VALUE *argv, VALUE self) {
   Window wid;
@@ -1181,7 +1254,7 @@ void Init_wmctrl()
   rb_define_alloc_func(rb_wmctrl_class, rb_wmctrl_alloc);
   rb_define_private_method(rb_wmctrl_class, "initialize", rb_wmctrl_initialize, -1);
 
-  rb_define_method(rb_wmctrl_class, "list_windows", rb_wmctrl_list_windows, 0);
+  rb_define_method(rb_wmctrl_class, "list_windows", rb_wmctrl_list_windows, -1);
   rb_define_method(rb_wmctrl_class, "list_desktops", rb_wmctrl_list_desktops, 0);
   rb_define_method(rb_wmctrl_class, "switch_desktop", rb_wmctrl_switch_desktop, 1);
   rb_define_method(rb_wmctrl_class, "info", rb_wmctrl_info, 0);
@@ -1205,6 +1278,9 @@ void Init_wmctrl()
   key_current = ID2SYM(rb_intern("current"));
   key_showing_desktop = ID2SYM(rb_intern("showing_desktop"));
   key_name = ID2SYM(rb_intern("name"));
+  key_state = ID2SYM(rb_intern("state"));
+  key_frame_extents = ID2SYM(rb_intern("frame_extents"));
+  key_strut = ID2SYM(rb_intern("strut"));
 
   id_active = rb_intern("active");
   id_select = rb_intern("select");

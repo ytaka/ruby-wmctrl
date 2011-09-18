@@ -4,3 +4,7 @@ require 'pp'
 
 wm = WMCtrl.new
 pp wm.list_windows
+
+puts "---"
+
+pp wm.list_windows(true)
