@@ -806,7 +806,7 @@ static int window_move_resize (Display *disp, Window win, signed long grav,
   if (w != -1) grflags |= (1 << 10);
   if (h != -1) grflags |= (1 << 11);
 
-  p_verbose("grflags: %lu\n", grflags);
+  p_verbose("move_resize: %lu %ld %ld %ld %ld\n", grflags, x, y, w, h);
 
   if (wm_supports(disp, "_NET_MOVERESIZE_WINDOW")){
     return client_msg(disp, win, "_NET_MOVERESIZE_WINDOW",
