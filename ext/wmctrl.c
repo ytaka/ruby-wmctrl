@@ -318,7 +318,7 @@ static VALUE rb_wmctrl_list_windows (int argc, VALUE *argv, VALUE self) {
 
       /* geometry */
       XGetGeometry (disp, client_list[i], &junkroot, &junkx, &junky, &wwidth, &wheight, &bw, &depth);
-      XTranslateCoordinates (disp, client_list[i], junkroot, junkx, junky, &x, &y, &junkroot);
+      XTranslateCoordinates (disp, client_list[i], junkroot, -bw, -bw, &x, &y, &junkroot);
 
       rb_hash_aset(window_obj, key_geometry,
 		   rb_ary_new3(4, INT2NUM(x), INT2NUM(y), INT2NUM(wwidth), INT2NUM(wheight)));
