@@ -1109,65 +1109,6 @@ static Window get_target_window (Display *disp, VALUE obj)
   return wid;
 }
 
-/* static int action_window_str (Display *disp) { */
-/*   Window activate = 0; */
-/*   Window *client_list; */
-/*   unsigned long client_list_size; */
-/*   int i; */
-
-/*   if ((client_list = get_client_list(disp, &client_list_size)) != NULL) { */
-/*     for (i = 0; i < client_list_size / sizeof(Window); i++) { */
-/*       gchar *match_utf8; */
-/*       if (options.show_class) { */
-/* 	match_utf8 = get_window_class(disp, client_list[i]); /\* UTF8 *\/ */
-/*       } */
-/*       else { */
-/* 	match_utf8 = get_window_title(disp, client_list[i]); /\* UTF8 *\/ */
-/*       } */
-/*       if (match_utf8) { */
-/* 	gchar *match; */
-/* 	gchar *match_cf; */
-/* 	gchar *match_utf8_cf = NULL; */
-/* 	if (envir_utf8) { */
-/* 	  match = g_strdup(options.param_window); */
-/* 	  match_cf = g_utf8_casefold(options.param_window, -1); */
-/* 	} */
-/* 	else { */
-/* 	  if (! (match = g_locale_to_utf8(options.param_window, -1, NULL, NULL, NULL))) { */
-/* 	    match = g_strdup(options.param_window); */
-/* 	  } */
-/* 	  match_cf = g_utf8_casefold(match, -1); */
-/* 	} */
-
-/* 	if (!match || !match_cf) { */
-/* 	  continue; */
-/* 	} */
-
-/* 	match_utf8_cf = g_utf8_casefold(match_utf8, -1); */
-
-/* 	if ((options.full_window_title_match && strcmp(match_utf8, match) == 0) || */
-/* 	    (!options.full_window_title_match && strstr(match_utf8_cf, match_cf))) { */
-/* 	  activate = client_list[i]; */
-/* 	  g_free(match); */
-/* 	  g_free(match_cf); */
-/* 	  g_free(match_utf8); */
-/* 	  g_free(match_utf8_cf); */
-/* 	  break; */
-/* 	} */
-/* 	g_free(match); */
-/* 	g_free(match_cf); */
-/* 	g_free(match_utf8); */
-/* 	g_free(match_utf8_cf); */
-/*       } */
-/*       g_free(client_list); */
-/*       if (activate) { */
-/* 	break; */
-/*       } */
-/*     } */
-/*   } */
-/*   return activate; */
-/* } */
-
 /*
   call-seq:
     wm.action_window(wid, cmd, *args)
