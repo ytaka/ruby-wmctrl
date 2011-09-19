@@ -348,10 +348,9 @@ static VALUE rb_wmctrl_list_windows (int argc, VALUE *argv, VALUE self) {
 	/* exterior frame */
 	if (extents) {
 	  rb_hash_aset(window_obj, key_exterior_frame,
-		       rb_ary_new3(4, rb_ary_new3(2, INT2NUM(x - (int)extents[0]), INT2NUM(y - (int)extents[2])),
-				   rb_ary_new3(2, INT2NUM(x + wwidth + (int)extents[1]), INT2NUM(y - (int)extents[2])),
-				   rb_ary_new3(2, INT2NUM(x + wwidth + (int)extents[1]), INT2NUM(y + wheight + (int)extents[3])),
-				   rb_ary_new3(2, INT2NUM(x - (int)extents[0]), INT2NUM(y + wheight + (int)extents[3]))));
+		       rb_ary_new3(4, INT2NUM(x - (int)extents[0]), INT2NUM(y - (int)extents[2]),
+				   INT2NUM(wwidth + (int)extents[0] + (int)extents[1]),
+				   INT2NUM(wheight + (int)extents[2] + (int)extents[3])));
 	}
       	g_free(extents);
       } else {
