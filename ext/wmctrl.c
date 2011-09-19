@@ -53,7 +53,7 @@ static Window get_target_window (Display *disp, VALUE obj);
 static VALUE rb_wmctrl_class, key_id, key_title, key_pid, key_geometry,
   key_active, key_class, key_client_machine, key_desktop,
   key_viewport, key_workarea, key_current, key_showing_desktop, key_name,
-  key_state, key_frame_extents, key_strut;
+  key_state, key_frame_extents, key_strut, key_exterior_frame;
 
 static ID id_select, id_active, id_activate, id_close, id_move_resize,
   id_change_state, id_move_to_desktop, id_move_to_current,
@@ -345,6 +345,14 @@ static VALUE rb_wmctrl_list_windows (int argc, VALUE *argv, VALUE self) {
       	for (j = 0; j < extents_size / sizeof(unsigned long); j++) {
       	  rb_ary_push(extents_ary, ULONG2NUM(extents[j]));
       	}
+	/* exterior frame */
+	if (extents) {
+	  rb_hash_aset(window_obj, key_exterior_frame,
+		       rb_ary_new3(4, rb_ary_new3(2, INT2NUM(x - (int)extents[0]), INT2NUM(y - (int)extents[2])),
+				   rb_ary_new3(2, INT2NUM(x + wwidth + (int)extents[1]), INT2NUM(y - (int)extents[2])),
+				   rb_ary_new3(2, INT2NUM(x + wwidth + (int)extents[1]), INT2NUM(y + wheight + (int)extents[3])),
+				   rb_ary_new3(2, INT2NUM(x - (int)extents[0]), INT2NUM(y + wheight + (int)extents[3]))));
+	}
       	g_free(extents);
       } else {
       	extents_ary = Qnil;
@@ -1281,6 +1289,7 @@ void Init_wmctrl()
   key_state = ID2SYM(rb_intern("state"));
   key_frame_extents = ID2SYM(rb_intern("frame_extents"));
   key_strut = ID2SYM(rb_intern("strut"));
+  key_exterior_frame = ID2SYM(rb_intern("exterior_frame"));
 
   id_active = rb_intern("active");
   id_select = rb_intern("select");
