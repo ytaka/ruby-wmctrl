@@ -1,0 +1,197 @@
+#!/usr/bin/env ruby
+
+$LOAD_PATH.unshift(File.expand_path(File.dirname(__FILE__) + '/../lib'))
+$LOAD_PATH.unshift(File.expand_path(File.dirname(__FILE__) + '/../ext'))
+require 'wmctrl'
+require 'optparse'
+
+help_message =<<HELP
+Usage: rwmctrl [options ...]
+HELP
+
+Version = WMCtrl::VERSION
+
+options = {}
+begin
+  OptionParser.new(help_message) do |opt|
+    opt.on('-l', 'List windows.') do |v|
+      options[:mode] = :list_windows
+    end
+    opt.on('-p', 'Display PID of windows.') do |v|
+      options[:pid] = true
+    end
+    opt.on('-x', 'Display class name.') do |v|
+      options[:class] = true
+    end
+    opt.on('-G', 'Display geometry of windows.') do |v|
+      options[:geometry] = true
+    end
+    opt.on('-A', 'Mark active window.') do |v|
+      options[:active] = true
+    end
+    opt.on('-E', 'Display corners of exterior frame of windows.') do |v|
+      options[:exterior_frame] = true
+    end
+    opt.on('-e <MVARG>', String, 'Move and resize windows.') do |v|
+      options[:mode] = :move_resize
+      options[:move_resize] = v
+    end
+    opt.on('-r <WIN>', String, 'Specify target window.') do |v|
+      options[:target] = v
+    end
+    opt.on('-c <WIN>', String, 'Close window.') do |v|
+      options[:mode] = :close
+      options[:target] = v
+    end
+    opt.on('-d', 'List all desktops.') do |v|
+      options[:mode] = :desktop
+    end
+    opt.on('-m', 'Show information of window manager.') do |v|
+      options[:mode] = :wm_info
+    end
+    opt.on('-b STR', String, 'Change window properties. Format is (add|remove|toggle),prop1[,prop2]') do |v|
+      options[:mode] = :change_state
+      options[:change_state] = v
+    end
+    opt.on('-n N', Integer, 'Change the number of desktops.') do |v|
+      options[:mode] = :desktop_number
+      options[:desktop_number] = v
+    end
+    # Not implemented options
+    # '-g'
+    # '-I'
+    # '-k'
+    # '-N'
+    # '-o'
+    # '-R'
+    # '-s'
+    # '-t'
+    # '-T'
+    # '-w'
+
+    # '-u'
+    # '-v'
+    opt.on('-i', 'Use window ID number as window argument.') do |v|
+      options[:use_wid] = true
+    end
+    opt.on('-F', 'Use exact match of window title.') do |v|
+      option[:use_exact] = true
+    end
+    opt.on('--ignore-case', 'Ignore case to specfy target window.') do |v|
+      options[:ignore_case] = true
+    end
+    opt.parse!(ARGV)
+  end
+rescue OptionParser::InvalidOption
+  $stderr.print <<MES
+error: Invalid Option
+#{help_message}
+MES
+  exit(2)
+rescue OptionParser::InvalidArgument
+  $stderr.print <<MES
+error: Invalid Argument
+#{help_message}
+MES
+  exit(2)
+end
+
+wm = WMCtrl.new
+
+def specify_window(wm, arg, options)
+  if arg == ':ACTIVE:'
+    wm.list_windows.find do |w|
+      w[:active] ? w : nil
+    end
+  elsif arg == ':SELECT:'
+    raise 'Not implemented.'
+  elsif options[:use_wid]
+    wid = Integer(arg)
+    wm.list_windows.find do |w|
+      wid == w[:id] ? w : nil
+    end
+  else
+    if options[:use_exact]
+      wm.list_windows.find do |w|
+        arg == w[:title] ? w : nil
+      end
+    else
+      reg = Regexp.new(arg, options[:ignore_case] ? Regexp::IGNORECASE : 0)
+      wm.list_windows.find do |w|
+        reg =~ w[:title] ? w : nil
+      end
+    end
+  end
+end
+
+case options[:mode]
+when :list_windows
+  windows = wm.list_windows(true)
+  str_class_size = windows.map { |w| w[:class].to_s.size }.max
+  windows.each do |win|
+    s = ''
+    if options[:active]
+      s << (win[:active] ? "* " : "  ")
+    end
+    s << sprintf("0x%08x %2d ", win[:id], win[:desktop])
+    if options[:pid]
+      s << "%-7d" % (win[:pid] || 0)
+    end
+    if options[:geometry]
+      s << win[:geometry].map { |n| "%-5d" % n}.join
+    end
+    if options[:exterior_frame]
+      if win[:exterior_frame]
+        s << win[:exterior_frame].map { |n| "%-5d" % n}.join
+      else
+        s << "N/A"
+      end
+    end
+    if options[:class]
+      s << sprintf("%*s ", -str_class_size, (win[:class] || "N/A"))
+    end
+    s << sprintf("%s %s", win[:client_machine] || "N/A", win[:title] || "N/A")
+    puts s
+  end
+when :move_resize
+  if target_win = specify_window(wm, options[:target], options)
+    args = options[:move_resize].split(',').map(&:to_i)
+    if args.size == 5
+      wm.action_window(target_win[:id], :move_resize, *args)
+    else
+      puts "Invalid arguments."
+    end
+  else
+    puts "Can not specify target window."
+  end
+when :change_state
+  if target_win = specify_window(wm, options[:target], options)
+    args = options[:change_state].split(',')
+    if args.size == 2 || args.size == 3
+      wm.action_window(target_win[:id], :change_state, *args)
+    else
+      puts "Invalid property string."
+    end
+  end
+when :close
+  if target_win = specify_window(wm, options[:target], options)
+    wm.action_window(target_win[:id], :close)
+  end
+when :desktop
+  wm.list_desktops.each do |dt|
+    printf("%d  %s DG: %dx%d  VP: %d,%d WA: %d,%d %dx%d  %s\n",
+           dt[:id], dt[:current] ? '*' : '-', dt[:geometry][0], dt[:geometry][1], dt[:viewport][0], dt[:viewport][1],
+           dt[:workarea][0], dt[:workarea][1], dt[:workarea][2], dt[:workarea][3], dt[:title])
+  end
+when :desktop_number
+  wm.change_number_of_desktops(options[:desktop_number])
+when :wm_info
+  info = wm.info
+  puts "Name: #{info[:name]}"
+  puts "Class: #{info[:class]}"
+  puts "PID: #{info[:pid] ? info[:pid].to_s : "N/A"}"
+  puts "Window manager's \"showing the desktop\" mode: #{info[:showing_desktop]}"
+else
+  puts "Not implemented."
+  exit(1)
+end
