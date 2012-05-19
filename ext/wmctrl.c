@@ -661,7 +661,8 @@ static VALUE rb_wmctrl_info (VALUE self) {
 					       XA_CARDINAL, "_WIN_SUPPORTING_WM_CHECK", NULL))) {
       fputs("Cannot get window manager info properties.\n"
 	    "(_NET_SUPPORTING_WM_CHECK or _WIN_SUPPORTING_WM_CHECK)\n", stderr);
-      return EXIT_FAILURE;
+      /* return EXIT_FAILURE; */
+      return Qfalse;
     }
   }
 
