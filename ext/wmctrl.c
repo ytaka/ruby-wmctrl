@@ -237,11 +237,12 @@ static gchar *get_window_title (Display *disp, Window win)
 }
 
 /*
-  call-seq:
-    wm.list_windows(get_state = nil)
+  @overload list_windows(get_state = nil)
 
   Get list of information of windows.
   @param get_state [Boolean] If the value is true then we get some properties at the same time
+
+  @return [Hash] An array of hashes of window information.
 */
 static VALUE rb_wmctrl_list_windows (int argc, VALUE *argv, VALUE self) {
   Display **ptr, *disp;
@@ -387,7 +388,11 @@ static VALUE rb_wmctrl_list_windows (int argc, VALUE *argv, VALUE self) {
   return window_ary;
 }
 
-/* Get list of information of desktops. */
+/*
+  Get list of information of desktops.
+  
+  @return [Hash] An array of hashes of desktop information.
+*/
 static VALUE rb_wmctrl_list_desktops (VALUE self) {
   Display **ptr, *disp;
   unsigned long *num_desktops = NULL;
@@ -609,7 +614,15 @@ static VALUE rb_wmctrl_list_desktops (VALUE self) {
   return ret;
 }
 
-/* Switch desktop. */
+/*
+  @overload switch_desktop(desktop_id)
+  
+  Switch desktop.
+
+  @param desktop_id [Integer] ID number of desktop.
+  
+  @return [Qtrue]
+*/
 static VALUE rb_wmctrl_switch_desktop (VALUE self, VALUE desktop_id) {
   int target;
   Display **ptr, *disp;
@@ -624,7 +637,11 @@ static VALUE rb_wmctrl_switch_desktop (VALUE self, VALUE desktop_id) {
   return Qtrue;
 }
 
-/* Get hash of information of window manager. */
+/*
+  Get hash of information of window manager.
+  
+  @return [Hash]
+*/
 static VALUE rb_wmctrl_info (VALUE self) {
   Display **ptr, *disp;
   Window *sup_window = NULL;
@@ -695,7 +712,15 @@ static VALUE rb_wmctrl_info (VALUE self) {
   return ret;
 }
 
-/* Minimize windows to show desktop. */
+/*
+  @overload showing_desktop(state)
+  
+  Minimize windows to show desktop if the window manager implements "show the desktop" mode.
+  
+  @param state [boolean] We set true if we want to turn on showing desktop mode.
+  
+  @return [true]
+*/
 static VALUE rb_wmctrl_showing_desktop (VALUE self, VALUE state) {
   Display **ptr, *disp;
   Data_Get_Struct(self, Display*, ptr);
@@ -704,6 +729,16 @@ static VALUE rb_wmctrl_showing_desktop (VALUE self, VALUE state) {
   return Qtrue;
 }
 
+/*
+  @overload change_viewport(x, y)
+  
+  Change the viewport. A window manager may ignore this request.
+  
+  @param x [Integer] Offset of top position
+  @param y [Integer] Offset of left position
+
+  @return [true]
+ */
 static VALUE rb_wmctrl_change_viewport (VALUE self, VALUE xnum, VALUE ynum) {
   long x, y;
   Display **ptr, *disp;
@@ -718,6 +753,16 @@ static VALUE rb_wmctrl_change_viewport (VALUE self, VALUE xnum, VALUE ynum) {
   return Qtrue;
 }
 
+/*
+  @overload change_geometry(w, h)
+  
+  Change geometry of all desktops. A window manager may ignore this request.
+
+  @param w [Ineteger] Width
+  @param h [Ineteger] Height
+
+  @return [true]
+*/
 static VALUE rb_wmctrl_change_geometry (VALUE self, VALUE xnum, VALUE ynum) {
   long x, y;
   Display **ptr, *disp;
@@ -732,7 +777,15 @@ static VALUE rb_wmctrl_change_geometry (VALUE self, VALUE xnum, VALUE ynum) {
   return Qtrue;
 }
 
-/* Change number of desktops. */
+/*
+  @overload change_number_of_desktops(num)
+  
+  Change number of desktops.
+  
+  @param num [Integer] Number of desktops.
+
+  @return [true]
+*/
 static VALUE rb_wmctrl_change_number_of_desktops (VALUE self, VALUE num) {
   long n;
   Display **ptr, *disp;
@@ -1109,13 +1162,14 @@ static Window get_target_window (Display *disp, VALUE obj)
 }
 
 /*
-  call-seq:
-    wm.action_window(wid, cmd, *args)
+  @overload action_window(wid, cmd, *args)
   
   Manage windows.
   @param wid Window ID
   @param cmd [Symbol] Symbol of command
   @param args [Array] Arguments for the command
+
+  @return [boolean] true if succeeded. Otherwise, false.
   
   @example
     wm.action_window(wid, :close)
@@ -1169,6 +1223,11 @@ static VALUE rb_wmctrl_action_window(int argc, VALUE *argv, VALUE self) {
   }
 }
 
+/*
+  Get an array of _NET_SUPPORTED property.
+
+  @return [Array] An array of strings.
+ */
 static VALUE rb_wmctrl_supported (VALUE self)
 {
   Atom *list;
