@@ -1181,6 +1181,7 @@ static Window get_target_window (Display *disp, VALUE obj)
   @return [boolean] true if succeeded. Otherwise, false.
   
   @example
+    wm.action_window(wid, :activate)
     wm.action_window(wid, :close)
     wm.action_window(wid, :move_resize, grav, x, y, w, h)
     wm.action_window(wid, :change_state, add, prop1, prop2 = nil)
@@ -1275,8 +1276,8 @@ void Init_wmctrl()
   rb_define_method(rb_wmctrl_class, "switch_desktop", rb_wmctrl_switch_desktop, 1);
   rb_define_method(rb_wmctrl_class, "info", rb_wmctrl_info, 0);
   rb_define_method(rb_wmctrl_class, "showing_desktop", rb_wmctrl_showing_desktop, 1);
-  rb_define_method(rb_wmctrl_class, "change_viewport", rb_wmctrl_change_viewport, 0);
-  rb_define_method(rb_wmctrl_class, "change_geometry", rb_wmctrl_change_geometry, 0);
+  rb_define_method(rb_wmctrl_class, "change_viewport", rb_wmctrl_change_viewport, 2);
+  rb_define_method(rb_wmctrl_class, "change_geometry", rb_wmctrl_change_geometry, 2);
   rb_define_method(rb_wmctrl_class, "change_number_of_desktops", rb_wmctrl_change_number_of_desktops, 1);
   rb_define_method(rb_wmctrl_class, "action_window", rb_wmctrl_action_window, -1);
   rb_define_method(rb_wmctrl_class, "supported", rb_wmctrl_supported, 0);
