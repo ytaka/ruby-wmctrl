@@ -20,7 +20,7 @@ begin
     opt.on('-p', 'Display PID of windows.') do |v|
       options[:pid] = true
     end
-    opt.on('-x', 'Display class name.') do |v|
+    opt.on('-x', 'Display class name or interpret <WIN> as the WM_CLASS name.') do |v|
       options[:class] = true
     end
     opt.on('-G', 'Display geometry of windows.') do |v|
@@ -43,6 +43,10 @@ begin
       options[:mode] = :close
       options[:target] = v
     end
+    opt.on('-a <WIN>', String, 'Switch desktop and make the specified window active.') do |v|
+      options[:mode] = :make_active
+      options[:target] = v
+    end
     opt.on('-d', 'List all desktops.') do |v|
       options[:mode] = :desktop
     end
@@ -54,19 +58,62 @@ begin
       options[:change_state] = v
     end
     opt.on('-n N', Integer, 'Change the number of desktops.') do |v|
-      options[:mode] = :desktop_number
+      options[:mode] = :change_number_of_desktops
+      options[:arguments] = [v]
+    end
+    opt.on('-R <WIN>', String, 'Move <WIN> to the current desktop.') do |v|
+      options[:mode] = :move_to_current
+      options[:target] = v
+    end
+    opt.on('-t <DESK>', Integer, 'Move a window specified by -r to the desktop <DESK>.') do |v|
+      options[:mode] = :move_to_desktop
       options[:desktop_number] = v
     end
+    opt.on('-g SIZE', String, 'Change the geometry of all desktops. SIZE is the form w,h') do |v|
+      options[:mode] = :change_geometry
+      w, h = v.split(',').map(&:to_i)
+      if w && h
+        options[:arguments] = [w, h]
+      else
+        raise "Invalid argument"
+      end
+    end
+    opt.on('-o SIZE', String, 'Change the viewport. SIZE is the form w,h') do |v|
+      options[:mode] = :change_viewport
+      w, h = v.split(',').map(&:to_i)
+      if w && h
+        options[:arguments] = [w, h]
+      else
+        raise "Invalid argument"
+      end
+    end
+    opt.on('-N STR', String, 'Set long title of specified window.') do |v|
+      options[:mode] = :set_title_long
+      options[:arguments] = [v]
+    end
+    opt.on('-I STR', String, 'Set short title of specified window.') do |v|
+      options[:mode] = :set_title_short
+      options[:arguments] = [v]
+    end
+    opt.on('-T STR', String, 'Set long and short title of specified window.') do |v|
+      options[:mode] = :set_title_both
+      options[:arguments] = [v]
+    end
+    opt.on('-k ARG', String, 'Turn on or off "show the desktop". ARG is on or off.') do |v|
+      options[:mode] = :showing_desktop
+      if v == "on"
+        options[:arguments] = [true]
+      elsif v == "off"
+        options[:arguments] = [false]
+      else
+        raise "Invalid argument"
+      end
+    end
+    opt.on('-s <DESK>', Integer, 'Switch to the desktop <DESK>') do |v|
+      options[:mode] = :switch_desktop
+      options[:arguments] = [v]
+    end
     # Not implemented options
-    # '-g'
-    # '-I'
-    # '-k'
-    # '-N'
-    # '-o'
-    # '-R'
-    # '-s'
-    # '-t'
-    # '-T'
     # '-w'
 
     # '-u'
@@ -75,7 +122,7 @@ begin
       options[:use_wid] = true
     end
     opt.on('-F', 'Use exact match of window title.') do |v|
-      option[:use_exact] = true
+      options[:use_exact] = true
     end
     opt.on('--ignore-case', 'Ignore case to specfy target window.') do |v|
       options[:ignore_case] = true
@@ -96,32 +143,27 @@ MES
   exit(2)
 end
 
-wm = WMCtrl.new
+wm = WMCtrl.instance
 
-def specify_window(wm, arg, options)
+# Return first window specified by arg and options
+def specify_window(arg, options)
+  wm = WMCtrl.instance
+  win = nil
   if arg == ':ACTIVE:'
-    wm.list_windows.find do |w|
-      w[:active] ? w : nil
-    end
+    win = wm.windows(:active => true).first
   elsif arg == ':SELECT:'
     raise 'Not implemented.'
   elsif options[:use_wid]
-    wid = Integer(arg)
-    wm.list_windows.find do |w|
-      wid == w[:id] ? w : nil
-    end
+    win = wm.windows(:id => Integer(arg)).first
   else
-    if options[:use_exact]
-      wm.list_windows.find do |w|
-        arg == w[:title] ? w : nil
-      end
-    else
-      reg = Regexp.new(arg, options[:ignore_case] ? Regexp::IGNORECASE : 0)
-      wm.list_windows.find do |w|
-        reg =~ w[:title] ? w : nil
-      end
-    end
+    key_name = (options[:class] ? :class : :title)
+    cond_title = (options[:use_exact] ? arg : Regexp.new(arg, options[:ignore_case] ? Regexp::IGNORECASE : 0))
+    win = wm.windows(key_name => cond_title).first
   end
+  unless win
+    raise "Any window is not specified."
+  end
+  win
 end
 
 case options[:mode]
@@ -154,37 +196,39 @@ when :list_windows
     puts s
   end
 when :move_resize
-  if target_win = specify_window(wm, options[:target], options)
-    args = options[:move_resize].split(',').map(&:to_i)
-    if args.size == 5
-      wm.action_window(target_win[:id], :move_resize, *args)
-    else
-      puts "Invalid arguments."
-    end
+  target_win = specify_window(options[:target], options)
+  args = options[:move_resize].split(',').map(&:to_i)
+  if args.size == 5
+    wm.action_window(target_win[:id], :move_resize, *args)
   else
-    puts "Can not specify target window."
+    puts "Invalid arguments."
   end
 when :change_state
-  if target_win = specify_window(wm, options[:target], options)
-    args = options[:change_state].split(',')
-    if args.size == 2 || args.size == 3
-      wm.action_window(target_win[:id], :change_state, *args)
-    else
-      puts "Invalid property string."
-    end
+  target_win = specify_window(options[:target], options)
+  args = options[:change_state].split(',')
+  if args.size == 2 || args.size == 3
+    target_win.change_state(*args)
+  else
+    puts "Invalid property string: #{args.inspect}"
   end
 when :close
-  if target_win = specify_window(wm, options[:target], options)
-    wm.action_window(target_win[:id], :close)
-  end
+  specify_window(options[:target], options).close
+when :make_active
+  specify_window(options[:target], options).activate
 when :desktop
   wm.list_desktops.each do |dt|
     printf("%d  %s DG: %dx%d  VP: %d,%d WA: %d,%d %dx%d  %s\n",
            dt[:id], dt[:current] ? '*' : '-', dt[:geometry][0], dt[:geometry][1], dt[:viewport][0], dt[:viewport][1],
            dt[:workarea][0], dt[:workarea][1], dt[:workarea][2], dt[:workarea][3], dt[:title])
   end
-when :desktop_number
-  wm.change_number_of_desktops(options[:desktop_number])
+when :move_to_desktop
+  wm.action_window(specify_window(options[:target], options)[:id], :move_to_desktop, options[:desktop_number])
+when :move_to_current
+  wm.action_window(specify_window(options[:target], options)[:id], :move_to_current)
+when :change_number_of_desktops, :change_geometry, :change_viewport, :showing_desktop, :switch_desktop
+  wm.__send__(options[:mode], *options[:arguments])
+when :set_title_both, :set_title_short, :set_title_long
+  wm.action_window(specify_window(options[:target], options)[:id], options[:mode], *options[:arguments])
 when :wm_info
   info = wm.info
   puts "Name: #{info[:name]}"

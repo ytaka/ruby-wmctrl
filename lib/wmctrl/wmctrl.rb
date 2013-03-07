@@ -21,6 +21,8 @@ class WMCtrl
         self[key]
       end
     end
+
+    # Valid keys of the method[] are :id, :current, :title, :geometry, :viewport, and :workarea.
   end
 
   class Window < DataHash
@@ -36,6 +38,9 @@ class WMCtrl
       self[:class]
     end
 
+    # @param [Symbol] key Valid keys are :class, :id, :title, :active, :desktop, :client_machine,
+    #   :pid, :geometry, :state, :exterior_frame, :frame_extents, and :strut.
+    #   :wm_class is an alias of :class.
     def [](key)
       if key == :wm_class
         self.wm_class
@@ -46,6 +51,27 @@ class WMCtrl
 
     def sticky?
       self[:desktop] == -1
+    end
+
+    def active?
+      self[:active]
+    end
+
+    def action(*args)
+      WMCtrl.instance.action_window(self[:id], *args)
+    end
+    private :action
+
+    def close
+      action(:close)
+    end
+
+    def change_state(*args)
+      action(:change_state, *args)
+    end
+
+    def activate
+      action(:activate)
     end
   end
 
