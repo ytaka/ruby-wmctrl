@@ -31,13 +31,17 @@ and call methods of an instance of WMCtrl.
     wm = WMCtrl.new
     pp wm.list_windows
 
+If you want to get properties of windows, you pass true as an argument.
+
+    pp wm.list_windows(true)
+
 ### Activate a window
 
     wm.action_window(window_id, :activate)
 
-The method 'action_window' takes window ID as first argument.
-We can get window ID by the method 'list_windows'.
-The second argument of 'action_window' is an action that
+The method 'action\_window' takes window ID as first argument.
+We can get window ID by the method 'list\_windows'.
+The second argument of 'action\_window' is an action that
 manages the window of window ID.
 The rest arguments are arguments of the action.
 
