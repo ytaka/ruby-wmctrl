@@ -1,2 +1,2 @@
-require 'wmctrl.so'
+require 'wmctrl/wmctrl'
 require 'wmctrl/version'
