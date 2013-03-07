@@ -7,8 +7,10 @@ Ruby bindings to control windows in EWMH and NetWM compatible X Window manager.
 
 ## Installation
 
-ruby-wmctrl is a C extended library, which uses glib and x11.
-For ubuntu 11.04, we should install packages.
+ruby-wmctrl is a C extended library, which uses glib and x11,
+and is not a program to parse the output of command "wmctrl".
+
+On ubuntu 11.04, we should install the following packages.
 
     apt-get install libx11-dev libglib2.0-dev libxmu-dev
 
@@ -16,19 +18,36 @@ Then we can install ruby-wmctrl from rubygems.
 
     gem install ruby-wmctrl
 
+## Remark
+
+Note that values of positions of windows aredifferent from
+those of original "wmctrl" and include frame sizes.
+
 ## Usage
 
-We load 'wmctrl' as below
+We load 'wmctrl' as below;
 
     require 'wmctrl'
 
-and call methods of an instance of WMCtrl.
+We get desktops and windows as follows;
+
+    pp WMCtrl.instance.desktops
+    pp WMCtrl.instance.windows
+
+We can specify search conditions of windows; for example,
+
+    pp WMCtrl.instance.windows(:wm_class => /^emacs/)
+
+## Usage (Basic method similar to the command "wmctrl")
+
+ruby-wmctrl has some basic methods derived from wmctrl,
+but the author think that these methods may be changed in future release.
 
 ### List windows
 
     require 'wmctrl'
     require 'pp'
-    wm = WMCtrl.new
+    wm = WMCtrl.instance
     pp wm.list_windows
 
 If you want to get properties of windows, you pass true as an argument.
@@ -69,6 +88,11 @@ width, and height, respectively. That is,
 ### List desktops
 
     pp wm.list_desktops
+
+## rwmctrl
+
+ruby-wmctrl includes the command "rwmctrl", which imitates the command "wmctrl"
+but does not implement all functionalities of "wmctrl".
 
 ## License
 
