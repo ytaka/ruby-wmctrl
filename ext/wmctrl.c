@@ -61,7 +61,9 @@ static ID id_select, id_active, id_activate, id_close, id_move_resize,
 
 static void rb_wmctrl_free (void **ptr)
 {
-  XCloseDisplay(*ptr);
+  Display **disp;
+  disp = (Display **) ptr;
+  XCloseDisplay(*disp);
   free(ptr);
 }
 
@@ -649,7 +651,7 @@ static VALUE rb_wmctrl_info (VALUE self) {
   gchar *wm_class = NULL;
   unsigned long *wm_pid = NULL;
   unsigned long *showing_desktop = NULL;
-  gboolean name_is_utf8 = TRUE;
+  gboolean name_is_utf8;
   VALUE ret = rb_hash_new();
 
   Data_Get_Struct(self, Display*, ptr);
@@ -667,6 +669,7 @@ static VALUE rb_wmctrl_info (VALUE self) {
   }
 
   /* WM_NAME */
+  name_is_utf8 = TRUE;
   if (! (wm_name = get_property(disp, *sup_window,
 				XInternAtom(disp, "UTF8_STRING", False), "_NET_WM_NAME", NULL))) {
     name_is_utf8 = FALSE;
@@ -675,8 +678,12 @@ static VALUE rb_wmctrl_info (VALUE self) {
       p_verbose("Cannot get name of the window manager (_NET_WM_NAME).\n");
     }
   }
+  if (wm_name) {
+    rb_hash_aset(ret, key_name, (name_is_utf8 ? RB_UTF8_STRING_NEW2(wm_name) : rb_str_new(wm_name, strlen(wm_name))));
+  }
 
   /* WM_CLASS */
+  name_is_utf8 = TRUE;
   if (! (wm_class = get_property(disp, *sup_window,
 				 XInternAtom(disp, "UTF8_STRING", False), "WM_CLASS", NULL))) {
     name_is_utf8 = FALSE;
@@ -684,6 +691,9 @@ static VALUE rb_wmctrl_info (VALUE self) {
 				   XA_STRING, "WM_CLASS", NULL))) {
       p_verbose("Cannot get class of the window manager (WM_CLASS).\n");
     }
+  }
+  if (wm_class) {
+    rb_hash_aset(ret, key_class, (name_is_utf8 ? RB_UTF8_STRING_NEW2(wm_class) : rb_str_new(wm_class, strlen(wm_class))));
   }
 
   /* WM_PID */
@@ -698,8 +708,6 @@ static VALUE rb_wmctrl_info (VALUE self) {
     p_verbose("Cannot get the _NET_SHOWING_DESKTOP property.\n");
   }
 
-  rb_hash_aset(ret, key_name, (wm_name ? RB_UTF8_STRING_NEW2(wm_name) : Qnil));
-  rb_hash_aset(ret, key_class, (wm_class ? RB_UTF8_STRING_NEW2(wm_class) : Qnil));
   rb_hash_aset(ret, key_pid, (wm_pid ? UINT2NUM(*wm_pid) : Qnil));
   rb_hash_aset(ret, key_showing_desktop,
 	       (showing_desktop ? RB_UTF8_STRING_NEW2(*showing_desktop == 1 ? "ON" : "OFF") : Qnil));
