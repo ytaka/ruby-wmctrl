@@ -73,6 +73,33 @@ class WMCtrl
     def activate
       action(:activate)
     end
+
+    # @param [Hash] opts Options
+    # @option opts [Integer] :x X coordinate
+    # @option opts [Integer] :y Y coordinate
+    # @option opts [Integer] :width Width of window
+    # @option opts [Integer] :height Height of window
+    # @option opts [Integer,:current] :desktop Desktop number
+    def place(opts = {})
+      if opts[:desktop]
+        if opts[:desktop] == :current
+          action(:move_to_current)
+        elsif (opts[:desktop] != self[:desktop])
+          action(:move_to_desktop, opts[:desktop])
+        end
+      end
+      x = self[:exterior_frame][0]
+      y = self[:exterior_frame][1]
+      width = self[:exterior_frame][2]
+      height = self[:exterior_frame][3]
+      extent_horizontal = self[:frame_extents][0] + self[:frame_extents][1]
+      extent_vertical = self[:frame_extents][2] + self[:frame_extents][3]
+      width = opts[:width] if opts[:width] && (opts[:width] != width)
+      height = opts[:height] if opts[:height] && (opts[:height] != height)
+      x = opts[:x] if opts[:x] && (opts[:x] != x)
+      y = opts[:y] if opts[:y] && (opts[:y] != y)
+      action(:move_resize, 0, x + self[:frame_extents][0], y + self[:frame_extents][1], width - extent_horizontal, height - extent_vertical)
+    end
   end
 
   # @return [Array] An array of WMCtrl::Desktop
