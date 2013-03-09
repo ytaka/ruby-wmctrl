@@ -238,6 +238,129 @@ static gchar *get_window_title (Display *disp, Window win)
   return title_utf8;
 }
 
+static VALUE get_window_hash_data (Window win, Display *disp, Window window_active, int get_state)
+{
+  VALUE window_obj = rb_hash_new();
+  gchar *title_utf8 = get_window_title(disp, win); /* UTF8 */
+  gchar *client_machine;
+  gchar *class_out = get_window_class(disp, win); /* UTF8 */
+  unsigned long *desktop;
+
+  if ((int) window_active < 0) {
+    window_active = get_active_window(disp);
+  }
+
+  rb_hash_aset(window_obj, key_id, INT2NUM(win));
+  rb_hash_aset(window_obj, key_title, (title_utf8 ? RB_UTF8_STRING_NEW2(title_utf8) : Qnil));
+  rb_hash_aset(window_obj, key_class, (class_out ? RB_UTF8_STRING_NEW2(class_out) : Qnil));
+
+  if (window_active == win) {
+    rb_hash_aset(window_obj, key_active, Qtrue);
+  } else {
+    rb_hash_aset(window_obj, key_active, Qnil);
+  }
+
+  /* desktop ID */
+  if ((desktop = (unsigned long *)get_property(disp, win,
+                                               XA_CARDINAL, "_NET_WM_DESKTOP", NULL)) == NULL) {
+    desktop = (unsigned long *)get_property(disp, win, XA_CARDINAL, "_WIN_WORKSPACE", NULL);
+  }
+  /* special desktop ID -1 means "all desktops", so we
+     have to convert the desktop value to signed long */
+  rb_hash_aset(window_obj, key_desktop, INT2NUM(desktop ? (signed long)*desktop : 0));
+
+  /* client machine */
+  client_machine = get_property(disp, win, XA_STRING, "WM_CLIENT_MACHINE", NULL);
+  rb_hash_aset(window_obj, key_client_machine, (client_machine ? RB_UTF8_STRING_NEW2(client_machine) : Qnil));
+
+  if (get_state) {
+    unsigned long *pid;
+    int x, y, junkx, junky;
+    unsigned long j;
+    unsigned int wwidth, wheight, bw, depth;
+    Window junkroot;
+    unsigned long state_size;
+    Atom *window_state;
+    gchar *state_name;
+    VALUE state_ary;
+    Atom *extents;
+    unsigned long extents_size;
+    VALUE extents_ary;
+    Atom *strut;
+    unsigned long strut_size;
+    VALUE strut_ary;
+
+    /* pid */
+    pid = (unsigned long *)get_property(disp, win, XA_CARDINAL, "_NET_WM_PID", NULL);
+    rb_hash_aset(window_obj, key_pid, (pid ? ULONG2NUM(*pid) : Qnil));
+    g_free(pid);
+
+    /* geometry */
+    XGetGeometry (disp, win, &junkroot, &junkx, &junky, &wwidth, &wheight, &bw, &depth);
+    XTranslateCoordinates (disp, win, junkroot, -bw, -bw, &x, &y, &junkroot);
+
+    rb_hash_aset(window_obj, key_geometry,
+                 rb_ary_new3(4, INT2NUM(x), INT2NUM(y), INT2NUM(wwidth), INT2NUM(wheight)));
+
+    /* state */
+    if ((window_state = (Atom *)get_property(disp, win,
+                                             XA_ATOM, "_NET_WM_STATE", &state_size)) != NULL) {
+      state_ary = rb_ary_new();
+      for (j = 0; j < state_size / sizeof(Atom); j++) {
+        state_name = XGetAtomName(disp, window_state[j]);
+        rb_ary_push(state_ary, rb_str_new2(state_name));
+        g_free(state_name);
+      }
+      g_free(window_state);
+    } else {
+      state_ary = Qnil;
+    }
+    rb_hash_aset(window_obj, key_state, state_ary);
+
+    /* frame extents */
+    if ((extents = (unsigned long *)get_property(disp, win,
+                                                 XA_CARDINAL, "_NET_FRAME_EXTENTS", &extents_size)) != NULL) {
+      extents_ary = rb_ary_new();
+      for (j = 0; j < extents_size / sizeof(unsigned long); j++) {
+        rb_ary_push(extents_ary, ULONG2NUM(extents[j]));
+      }
+      /* exterior frame */
+      if (extents) {
+        rb_hash_aset(window_obj, key_exterior_frame,
+                     rb_ary_new3(4, INT2NUM(x - (int)extents[0]), INT2NUM(y - (int)extents[2]),
+                                 INT2NUM(wwidth + (int)extents[0] + (int)extents[1]),
+                                 INT2NUM(wheight + (int)extents[2] + (int)extents[3])));
+      }
+      g_free(extents);
+    } else {
+      extents_ary = Qnil;
+    }
+    rb_hash_aset(window_obj, key_frame_extents, extents_ary);
+
+    /* strut partial or strut */
+    if ((strut = (unsigned long *)get_property(disp, win,
+                                               XA_CARDINAL, "_NET_WM_STRUT_PARTIAL", &strut_size)) == NULL) {
+      strut = (unsigned long *)get_property(disp, win, XA_CARDINAL, "_NET_WM_STRUT", &strut_size);
+    }
+    if (strut) {
+      strut_ary = rb_ary_new();
+      for (j = 0; j < strut_size / sizeof(unsigned long); j++) {
+        rb_ary_push(strut_ary, ULONG2NUM(strut[j]));
+      }
+      g_free(strut);
+    } else {
+      strut_ary = Qnil;
+    }
+    rb_hash_aset(window_obj, key_strut, strut_ary);
+  }
+
+  g_free(title_utf8);
+  g_free(desktop);
+  g_free(client_machine);
+  g_free(class_out);
+  return window_obj;
+}
+
 /*
   @overload list_windows(get_state = nil)
 
@@ -268,126 +391,23 @@ static VALUE rb_wmctrl_list_windows (int argc, VALUE *argv, VALUE self) {
   window_ary = rb_ary_new2(client_list_size);
 
   for (i = 0; i < client_list_size / sizeof(Window); i++) {
-    VALUE window_obj = rb_hash_new();
-    gchar *title_utf8 = get_window_title(disp, client_list[i]); /* UTF8 */
-    gchar *client_machine;
-    gchar *class_out = get_window_class(disp, client_list[i]); /* UTF8 */
-    unsigned long *desktop;
-
-    rb_hash_aset(window_obj, key_id, INT2NUM(client_list[i]));
-    rb_hash_aset(window_obj, key_title, (title_utf8 ? RB_UTF8_STRING_NEW2(title_utf8) : Qnil));
-    rb_hash_aset(window_obj, key_class, (class_out ? RB_UTF8_STRING_NEW2(class_out) : Qnil));
-
-    if (window_active == client_list[i]) {
-      rb_hash_aset(window_obj, key_active, Qtrue);
-    } else {
-      rb_hash_aset(window_obj, key_active, Qnil);
-    }
-
-    /* desktop ID */
-    if ((desktop = (unsigned long *)get_property(disp, client_list[i],
-  						 XA_CARDINAL, "_NET_WM_DESKTOP", NULL)) == NULL) {
-      desktop = (unsigned long *)get_property(disp, client_list[i], XA_CARDINAL, "_WIN_WORKSPACE", NULL);
-    }
-    /* special desktop ID -1 means "all desktops", so we
-       have to convert the desktop value to signed long */
-    rb_hash_aset(window_obj, key_desktop, INT2NUM(desktop ? (signed long)*desktop : 0));
-
-    /* client machine */
-    client_machine = get_property(disp, client_list[i], XA_STRING, "WM_CLIENT_MACHINE", NULL);
-    rb_hash_aset(window_obj, key_client_machine, (client_machine ? RB_UTF8_STRING_NEW2(client_machine) : Qnil));
-
-    if (get_state) {
-      unsigned long *pid;
-      int x, y, junkx, junky;
-      unsigned long j;
-      unsigned int wwidth, wheight, bw, depth;
-      Window junkroot;
-      unsigned long state_size;
-      Atom *window_state;
-      gchar *state_name;
-      VALUE state_ary;
-      Atom *extents;
-      unsigned long extents_size;
-      VALUE extents_ary;
-      Atom *strut;
-      unsigned long strut_size;
-      VALUE strut_ary;
-
-      /* pid */
-      pid = (unsigned long *)get_property(disp, client_list[i], XA_CARDINAL, "_NET_WM_PID", NULL);
-      rb_hash_aset(window_obj, key_pid, (pid ? ULONG2NUM(*pid) : Qnil));
-      g_free(pid);
-
-      /* geometry */
-      XGetGeometry (disp, client_list[i], &junkroot, &junkx, &junky, &wwidth, &wheight, &bw, &depth);
-      XTranslateCoordinates (disp, client_list[i], junkroot, -bw, -bw, &x, &y, &junkroot);
-
-      rb_hash_aset(window_obj, key_geometry,
-		   rb_ary_new3(4, INT2NUM(x), INT2NUM(y), INT2NUM(wwidth), INT2NUM(wheight)));
-
-      /* state */
-      if ((window_state = (Atom *)get_property(disp, client_list[i],
-					       XA_ATOM, "_NET_WM_STATE", &state_size)) != NULL) {
-	state_ary = rb_ary_new();
-	for (j = 0; j < state_size / sizeof(Atom); j++) {
-	  state_name = XGetAtomName(disp, window_state[j]);
-	  rb_ary_push(state_ary, rb_str_new2(state_name));
-	  g_free(state_name);
-	}
-	g_free(window_state);
-      } else {
-	state_ary = Qnil;
-      }
-      rb_hash_aset(window_obj, key_state, state_ary);
-
-      /* frame extents */
-      if ((extents = (unsigned long *)get_property(disp, client_list[i],
-      						   XA_CARDINAL, "_NET_FRAME_EXTENTS", &extents_size)) != NULL) {
-	extents_ary = rb_ary_new();
-      	for (j = 0; j < extents_size / sizeof(unsigned long); j++) {
-      	  rb_ary_push(extents_ary, ULONG2NUM(extents[j]));
-      	}
-	/* exterior frame */
-	if (extents) {
-	  rb_hash_aset(window_obj, key_exterior_frame,
-		       rb_ary_new3(4, INT2NUM(x - (int)extents[0]), INT2NUM(y - (int)extents[2]),
-				   INT2NUM(wwidth + (int)extents[0] + (int)extents[1]),
-				   INT2NUM(wheight + (int)extents[2] + (int)extents[3])));
-	}
-      	g_free(extents);
-      } else {
-      	extents_ary = Qnil;
-      }
-      rb_hash_aset(window_obj, key_frame_extents, extents_ary);
-
-      /* strut partial or strut */
-      if ((strut = (unsigned long *)get_property(disp, client_list[i],
-						 XA_CARDINAL, "_NET_WM_STRUT_PARTIAL", &strut_size)) == NULL) {
-	strut = (unsigned long *)get_property(disp, client_list[i], XA_CARDINAL, "_NET_WM_STRUT", &strut_size);
-      }
-      if (strut) {
-	strut_ary = rb_ary_new();
-      	for (j = 0; j < strut_size / sizeof(unsigned long); j++) {
-      	  rb_ary_push(strut_ary, ULONG2NUM(strut[j]));
-      	}
-      	g_free(strut);
-      } else {
-      	strut_ary = Qnil;
-      }
-      rb_hash_aset(window_obj, key_strut, strut_ary);
-    }
-
-    rb_ary_push(window_ary, window_obj);
-
-    g_free(title_utf8);
-    g_free(desktop);
-    g_free(client_machine);
-    g_free(class_out);
+    rb_ary_push(window_ary, get_window_hash_data(client_list[i], disp, window_active, get_state));
   }
   g_free(client_list);
 
   return window_ary;
+}
+
+/*
+  @return [Hash] Hash of specified window data
+*/
+static VALUE rb_wmctrl_get_window_data (VALUE self, VALUE win_id_obj) {
+  Display **ptr, *disp;
+  Window win_id;
+  win_id = (Window) NUM2LONG(win_id_obj);
+  Data_Get_Struct(self, Display*, ptr);
+  disp = *ptr;
+  return get_window_hash_data(win_id, disp, -1, TRUE);
 }
 
 /*
@@ -1272,6 +1292,7 @@ void Init_wmctrl()
   rb_define_private_method(rb_wmctrl_class, "initialize", rb_wmctrl_initialize, -1);
 
   rb_define_method(rb_wmctrl_class, "list_windows", rb_wmctrl_list_windows, -1);
+  rb_define_method(rb_wmctrl_class, "get_window_data", rb_wmctrl_get_window_data, 1);
   rb_define_method(rb_wmctrl_class, "list_desktops", rb_wmctrl_list_desktops, 0);
   rb_define_method(rb_wmctrl_class, "switch_desktop", rb_wmctrl_switch_desktop, 1);
   rb_define_method(rb_wmctrl_class, "info", rb_wmctrl_info, 0);

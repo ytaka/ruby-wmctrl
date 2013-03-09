@@ -59,6 +59,8 @@ class WMCtrl
 
     def action(*args)
       WMCtrl.instance.action_window(self[:id], *args)
+      @data = WMCtrl.instance.get_window_data(self[:id])
+      self
     end
     private :action
 
