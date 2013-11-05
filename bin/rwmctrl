@@ -168,7 +168,7 @@ end
 
 case options[:mode]
 when :list_windows
-  windows = wm.list_windows(true)
+  windows = wm.windows
   str_class_size = windows.map { |w| w[:class].to_s.size }.max
   windows.each do |win|
     s = ''

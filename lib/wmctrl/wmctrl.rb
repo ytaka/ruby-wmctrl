@@ -16,13 +16,41 @@ class WMCtrl
   end
 
   class Desktop < DataHash
+    # Valid keys of the method [] are :id, :current, :title, :geometry, :viewport, and :workarea.
+
     [:id, :current, :title, :geometry, :viewport, :workarea].each do |key|
       define_method(key) do
         self[key]
       end
     end
 
-    # Valid keys of the method[] are :id, :current, :title, :geometry, :viewport, and :workarea.
+    def geometry_width
+      self[:geometry][0]
+    end
+
+    def geometry_height
+      self[:geometry][1]
+    end
+
+    # @return [Integer] X coordinate of Top left corner of workarea
+    def workarea_x
+      self[:workarea][0]
+    end
+
+    # @return [Integer] Y coordinate of Top left corner of workarea
+    def workarea_y
+      self[:workarea][1]
+    end
+
+    # @return [Integer] Width of workarea
+    def workarea_width
+      self[:workarea][2]
+    end
+
+    # @return [Integer] Height of workarea
+    def workarea_height
+      self[:workarea][3]
+    end
   end
 
   class Window < DataHash
@@ -55,6 +83,12 @@ class WMCtrl
 
     def active?
       self[:active]
+    end
+
+    STATE_FULLSCREEN = "_NET_WM_STATE_FULLSCREEN"
+
+    def fullscreen?
+      self[:state].include?(STATE_FULLSCREEN)
     end
 
     def action(*args)
@@ -101,6 +135,11 @@ class WMCtrl
       x = opts[:x] if opts[:x] && (opts[:x] != x)
       y = opts[:y] if opts[:y] && (opts[:y] != y)
       action(:move_resize, 0, x + self[:frame_extents][0], y + self[:frame_extents][1], width - extent_horizontal, height - extent_vertical)
+    end
+
+    def position
+      a = self[:exterior_frame]
+      { :x => a[0], :y => a[1], :width => a[2], :height => a[3] }
     end
   end
 
