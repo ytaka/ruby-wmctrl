@@ -1191,27 +1191,60 @@ static Window get_target_window (Display *disp, VALUE obj)
 }
 
 /*
-  @overload action_window(wid, cmd, *args)
-  
-  Manage windows.
-  @param wid Window ID
-  @param cmd [Symbol] Symbol of command
-  @param args [Array] Arguments for the command
+  Manage a window.
+  @overload action_window(wid, :activate)
+    Activate a window.
+    @param [Integer] wid Window ID
+    @return [boolean] true if succeeded. Otherwise, false.
+  @overload action_window(wid, :close)
+    Close a window
+    @param [Integer] wid Window ID
+    @return [boolean] true if succeeded. Otherwise, false.
+  @overload action_window(wid, :move_resize, grav, x, y, w, h)
+    @param [Integer] wid Window ID
+    @param [Integer] grav Gravity
+    @param [Integer] x    X coordinate
+    @param [Integer] y    Y coordinate
+    @param [Integer] w    Width
+    @param [Integer] h    Height
+    @return [boolean] true if succeeded. Otherwise, false.
+  @overload action_window(wid, :change_state, "add", prop1, prop2 = nil)
+    @param [Integer] wid Window ID
+    @param [String] prop1 String of _NET_WM_STATE type.
+    @param [String] prop2 String of _NET_WM_STATE type.
+    @return [boolean] true if succeeded. Otherwise, false.
+  @overload action_window(wid, :change_state, "remove", prop1, prop2 = nil)
+    @param [Integer] wid Window ID
+    @param [String] prop1 String of _NET_WM_STATE type.
+    @param [String] prop2 String of _NET_WM_STATE type.
+    @return [boolean] true if succeeded. Otherwise, false.
+  @overload action_window(wid, :change_state, "toggle", prop1, prop2 = nil)
+    @param [Integer] wid Window ID
+    @param [String] prop1 String of _NET_WM_STATE type.
+    @param [String] prop2 String of _NET_WM_STATE type.
+    @return [boolean] true if succeeded. Otherwise, false.
+  @overload action_window(wid, :move_to_desktop, desktop_id)
+    @param [Integer] wid Window ID
+    @param [Integer] desktop_id Desktop ID
+    @return [boolean] true if succeeded. Otherwise, false.
+  @overload action_window(wid, :move_to_current)
+    @param [Integer] wid Window ID
+    @return [boolean] true if succeeded. Otherwise, false.
+  @overload action_window(wid, :set_title_long, str)
+    @param [Integer] wid Window ID
+    @return [boolean] true if succeeded. Otherwise, false.
+  @overload action_window(wid, :set_title_short, str)
+    @param [Integer] wid Window ID
+    @return [boolean] true if succeeded. Otherwise, false.
+  @overload action_window(wid, :set_title_both, str)
+    @param [Integer] wid Window ID
+    @return [boolean] true if succeeded. Otherwise, false.
 
-  @return [boolean] true if succeeded. Otherwise, false.
-  
-  @example
-    wm.action_window(wid, :activate)
-    wm.action_window(wid, :close)
-    wm.action_window(wid, :move_resize, grav, x, y, w, h)
-    wm.action_window(wid, :change_state, add, prop1, prop2 = nil)
-    wm.action_window(wid, :change_state, remove, prop1, prop2 = nil)
-    wm.action_window(wid, :change_state, toggle, prop1, prop2 = nil)
-    wm.action_window(wid, :move_to_desktop, desktop_id)
-    wm.action_window(wid, :move_to_current)
-    wm.action_window(wid, :set_title_long, str)
-    wm.action_window(wid, :set_title_short, str)
-    wm.action_window(wid, :set_title_both, str)
+  @note
+    The arguments of prop1 and prop2 for :change_state command are strings
+    that mean type of _NET_WM_STATE.
+    For example, For example, we use "modal" or "MODAL" for _NET_WM_STATE_MODAL.
+    See also http://standards.freedesktop.org/wm-spec/wm-spec-latest.html
 */
 static VALUE rb_wmctrl_action_window(int argc, VALUE *argv, VALUE self) {
   Window wid;
