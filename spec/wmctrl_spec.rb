@@ -11,29 +11,29 @@ describe WMCtrl do
 
   it "should get an array of hashes." do
     wins = wm.list_windows
-    wins.should be_an_instance_of Array
+    expect(wins).to be_an_instance_of Array
     wins.each do |w|
-      w.should be_an_instance_of Hash
+      expect(w).to be_an_instance_of Hash
     end
   end
 
   it "should get an array of hashes." do
     desktops = wm.list_desktops
-    desktops.should be_an_instance_of Array
+    expect(desktops).to be_an_instance_of Array
     desktops.each do |w|
-      w.should be_an_instance_of Hash
+      expect(w).to be_an_instance_of Hash
     end
   end
 
   it "should get information of window manager." do
-    wm.info.should be_an_instance_of Hash
+    expect(wm.info).to be_an_instance_of Hash
   end
 
   it "should get an array." do
     sp = wm.supported
-    sp.should be_an_instance_of Array
+    expect(sp).to be_an_instance_of Array
     sp.each do |prop|
-      prop.should be_an_instance_of String
+      expect(prop).to be_an_instance_of String
     end
   end
 
