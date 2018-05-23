@@ -148,9 +148,15 @@ class WMCtrl
     list_desktops.map { |hash| WMCtrl::Desktop.new(hash) }
   end
 
-  # @param [Array] conditions An array of condition hash. The values of hash are tested by the method ===.
-  # @return [Array] An array of WMCtrl::Window
-  def windows(*conditions)
+  # @param [Array] conditions An array of condition hash.
+  #   The keys of the hash are keys of WMCtrl::Window#[].
+  #   The values of the hash are tested by the method ===.
+  #   Keys of each condition are combined by logical product and
+  #   all conditions are combined by logical sum.
+  # @yield [WMCtrl::Window] Test window by block
+  # @return [Array] An array of WMCtrl::Window including windows
+  #   matched by the conditions and the block.
+  def windows(*conditions, &block)
     wins = list_windows(true).map { |hash| WMCtrl::Window.new(hash) }
     unless conditions.empty?
       wins_selected = []
@@ -166,6 +172,9 @@ class WMCtrl
         wins = wins_rest
       end
       wins = wins_selected
+    end
+    if block_given?
+      wins.delete_if { |win| !yield(win) }
     end
     wins
   end
