@@ -85,10 +85,36 @@ class WMCtrl
       self[:active]
     end
 
-    STATE_FULLSCREEN = "_NET_WM_STATE_FULLSCREEN"
-
     def fullscreen?
-      self[:state].include?(STATE_FULLSCREEN)
+      self[:state].include?("_NET_WM_STATE_FULLSCREEN")
+    end
+
+    def modal?
+      self[:state].include?("_NET_WM_STATE_MODAL")
+    end
+
+    def maximized_vertically?
+      self[:state].include?("_NET_WM_STATE_MAXIMIZED_VERT")
+    end
+
+    def maximized_horizontally?
+      self[:state].include?("_NET_WM_STATE_MAXIMIZED_HORZ")
+    end
+
+    def shaded?
+      self[:state].include?("_NET_WM_STATE_SHADED")
+    end
+
+    def hidden?
+      self[:state].include?("_NET_WM_STATE_HIDDEN")
+    end
+
+    def skipped_by_taskbar?
+      self[:state].include?("_NET_WM_STATE_SKIP_TASKBAR")
+    end
+
+    def skipped_by_pager?
+      self[:state].include?("_NET_WM_STATE_SKIP_PAGER")
     end
 
     def action(*args)
