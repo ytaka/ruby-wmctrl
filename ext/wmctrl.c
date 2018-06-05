@@ -53,7 +53,7 @@ static Window get_target_window (Display *disp, VALUE obj);
 static VALUE rb_wmctrl_class, key_id, key_title, key_pid, key_geometry,
   key_active, key_class, key_client_machine, key_desktop,
   key_viewport, key_workarea, key_current, key_showing_desktop, key_name,
-  key_state, key_frame_extents, key_strut, key_exterior_frame;
+  key_state, key_window_type, key_frame_extents, key_strut, key_exterior_frame;
 
 static ID id_select, id_active, id_activate, id_close, id_move_resize,
   id_change_state, id_move_to_desktop, id_move_to_current,
@@ -283,6 +283,10 @@ static VALUE get_window_hash_data (Window win, Display *disp, Window window_acti
     Atom *window_state;
     gchar *state_name;
     VALUE state_ary;
+    unsigned long window_type_size;
+    Atom *window_type;
+    gchar *window_type_name;
+    VALUE window_type_ary;
     Atom *extents;
     unsigned long extents_size;
     VALUE extents_ary;
@@ -316,6 +320,21 @@ static VALUE get_window_hash_data (Window win, Display *disp, Window window_acti
       state_ary = Qnil;
     }
     rb_hash_aset(window_obj, key_state, state_ary);
+
+    /* window type */
+    if ((window_type = (Atom *)get_property(disp, win,
+                                            XA_ATOM, "_NET_WM_WINDOW_TYPE", &window_type_size)) != NULL) {
+      window_type_ary = rb_ary_new();
+      for (j = 0; j < window_type_size / sizeof(Atom); j++) {
+        window_type_name = XGetAtomName(disp, window_type[j]);
+        rb_ary_push(window_type_ary, rb_str_new2(window_type_name));
+        g_free(window_type_name);
+      }
+      g_free(window_type);
+    } else {
+      window_type_ary = Qnil;
+    }
+    rb_hash_aset(window_obj, key_window_type, window_type_ary);
 
     /* frame extents */
     if ((extents = (unsigned long *)get_property(disp, win,
@@ -1356,6 +1375,7 @@ void Init_wmctrl()
   key_showing_desktop = ID2SYM(rb_intern("showing_desktop"));
   key_name = ID2SYM(rb_intern("name"));
   key_state = ID2SYM(rb_intern("state"));
+  key_window_type = ID2SYM(rb_intern("window_type"));
   key_frame_extents = ID2SYM(rb_intern("frame_extents"));
   key_strut = ID2SYM(rb_intern("strut"));
   key_exterior_frame = ID2SYM(rb_intern("exterior_frame"));
