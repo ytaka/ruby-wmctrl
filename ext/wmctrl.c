@@ -1035,10 +1035,12 @@ static int action_window (Display *disp, Window win, char mode, int argc, VALUE 
     if (argc == 0) {
       return activate_window(disp, win, TRUE);
     }
+    break;
   case 'c':
     if (argc == 0) {
       return close_window(disp, win);
     }
+    break;
   case 'e':
     /* resize/move the window around the desktop => -r -e */
     if (argc == 5) {
@@ -1066,11 +1068,13 @@ static int action_window (Display *disp, Window win, char mode, int argc, VALUE 
       }
       return window_state(disp, win, action, prop1, prop2);
     }
+    break;
   case 't':
     /* move the window to the specified desktop => -r -t */
     if (argc == 1) {
       return window_to_desktop(disp, win, FIX2INT(argv[0]));
     }
+    break;
   case 'R':
     /* move the window to the current desktop and activate it => -r */
     if (argc == 0) {
@@ -1083,11 +1087,13 @@ static int action_window (Display *disp, Window win, char mode, int argc, VALUE 
 	return False;
       }
     }
+    break;
   case 'N': case 'I': case 'T':
     if (argc == 1) {
       window_set_title(disp, win, StringValuePtr(argv[0]), mode);
       return True;
     }
+    break;
   }
   rb_raise(rb_eArgError, "Invalid argument of action_window.");
 }
