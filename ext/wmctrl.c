@@ -35,16 +35,13 @@ static gchar *get_property (Display *disp, Window win,
 static Window *get_client_list (Display *disp, unsigned long *size);
 static gchar *get_window_class (Display *disp, Window win);
 static gchar *get_window_title (Display *disp, Window win);
-static int activate_window (Display *disp, Window win, gboolean switch_desktop);
-static int close_window (Display *disp, Window win);
+static VALUE activate_window (Display *disp, Window win, gboolean switch_desktop);
+static VALUE close_window (Display *disp, Window win);
 static gboolean wm_supports (Display *disp, const gchar *prop);
-static int window_move_resize (Display *disp, Window win, signed long grav,
-			       signed long x, signed long y, signed long w, signed long h);
-static int window_state (Display *disp, Window win,
-			 const char *action_str, const char *prop1_str, const char *prop2_str);
+static VALUE window_move_resize (Display *disp, Window win, signed long grav, signed long x, signed long y, signed long w, signed long h);
+static VALUE change_window_state (Display *disp, Window win, const char *action_str, const char *prop1_str, const char *prop2_str);
 static int window_to_desktop (Display *disp, Window win, int desktop);
-static void window_set_title (Display *disp, Window win, char *title, char mode);
-static int action_window (Display *disp, Window win, char mode, int argc, VALUE *argv);
+static VALUE window_set_title (Display *disp, Window win, char *title, ID sym_id);
 static Window Select_Window(Display *dpy);
 static Window get_active_window(Display *disp);
 static Window get_target_window (Display *disp, VALUE obj);
@@ -847,7 +844,7 @@ static VALUE rb_wmctrl_change_number_of_desktops (VALUE self, VALUE num) {
   return Qtrue;
 }
 
-static int activate_window (Display *disp, Window win, gboolean switch_desktop)
+static VALUE activate_window (Display *disp, Window win, gboolean switch_desktop)
 {
   unsigned long *desktop;
 
@@ -872,12 +869,15 @@ static int activate_window (Display *disp, Window win, gboolean switch_desktop)
   client_msg(disp, win, "_NET_ACTIVE_WINDOW", 0, 0, 0, 0, 0);
   XMapRaised(disp, win);
 
-  return True;
+  return Qtrue;
 }
 
-static int close_window (Display *disp, Window win)
+static VALUE close_window (Display *disp, Window win)
 {
-  return client_msg(disp, win, "_NET_CLOSE_WINDOW", 0, 0, 0, 0, 0);
+  if (client_msg(disp, win, "_NET_CLOSE_WINDOW", 0, 0, 0, 0, 0)) {
+    return Qtrue;
+  }
+  return Qfalse;
 }
 
 static gboolean wm_supports (Display *disp, const gchar *prop)
@@ -904,39 +904,42 @@ static gboolean wm_supports (Display *disp, const gchar *prop)
   return FALSE;
 }
 
-static int window_move_resize (Display *disp, Window win, signed long grav,
-			       signed long x, signed long y, signed long w, signed long h)
+static VALUE window_move_resize (Display *disp, Window win, signed long grav, signed long x, signed long y, signed long w, signed long h)
 {
-  unsigned long grflags;
-  grflags = grav;
-  if (x != -1) grflags |= (1 << 8);
-  if (y != -1) grflags |= (1 << 9);
-  if (w != -1) grflags |= (1 << 10);
-  if (h != -1) grflags |= (1 << 11);
-
-  p_verbose("move_resize: %lu %ld %ld %ld %ld\n", grflags, x, y, w, h);
-
-  if (wm_supports(disp, "_NET_MOVERESIZE_WINDOW")){
-    return client_msg(disp, win, "_NET_MOVERESIZE_WINDOW",
-		      grflags, (unsigned long)x, (unsigned long)y, (unsigned long)w, (unsigned long)h);
-  }
-  else {
+  p_verbose("move_resize: %lu %ld %ld %ld %ld\n", grav, x, y, w, h);
+  if (wm_supports(disp, "_NET_MOVERESIZE_WINDOW")) {
+    unsigned long grflags;
+    grflags = grav;
+    if (x != -1) {
+      grflags |= (1 << 8);
+    }
+    if (y != -1) {
+      grflags |= (1 << 9);
+    }
+    if (w != -1) {
+      grflags |= (1 << 10);
+    }
+    if (h != -1) {
+      grflags |= (1 << 11);
+    }
+    if (client_msg(disp, win, "_NET_MOVERESIZE_WINDOW", grflags, (unsigned long) x, (unsigned long) y, (unsigned long) w, (unsigned long) h)) {
+      return Qtrue;
+    }
+    return Qfalse;
+  } else {
     p_verbose("WM doesn't support _NET_MOVERESIZE_WINDOW. Gravity will be ignored.\n");
     if ((w < 1 || h < 1) && (x >= 0 && y >= 0)) {
       XMoveWindow(disp, win, x, y);
-    }
-    else if ((x < 0 || y < 0) && (w >= 1 && h >= -1)) {
+    } else if ((x < 0 || y < 0) && (w >= 1 && h >= -1)) {
       XResizeWindow(disp, win, w, h);
-    }
-    else if (x >= 0 && y >= 0 && w >= 1 && h >= 1) {
+    } else if (x >= 0 && y >= 0 && w >= 1 && h >= 1) {
       XMoveResizeWindow(disp, win, x, y, w, h);
     }
-    return EXIT_SUCCESS;
+    return Qtrue;
   }
 }
 
-static int window_state (Display *disp, Window win,
-			 const char *action_str, const char *prop1_str, const char *prop2_str)
+static VALUE change_window_state (Display *disp, Window win, const char *action_str, const char *prop1_str, const char *prop2_str)
 {
   unsigned long action;
   Atom prop1 = 0;
@@ -946,14 +949,11 @@ static int window_state (Display *disp, Window win,
   /* action */
   if (strcmp(action_str, "remove") == 0) {
     action = _NET_WM_STATE_REMOVE;
-  }
-  else if (strcmp(action_str, "add") == 0) {
+  } else if (strcmp(action_str, "add") == 0) {
     action = _NET_WM_STATE_ADD;
-  }
-  else if (strcmp(action_str, "toggle") == 0) {
+  } else if (strcmp(action_str, "toggle") == 0) {
     action = _NET_WM_STATE_TOGGLE;
-  }
-  else {
+  } else {
     rb_raise(rb_eArgError, "Invalid action. Use either remove, add or toggle.");
   }
 
@@ -972,7 +972,10 @@ static int window_state (Display *disp, Window win,
     g_free(tmp2);
     g_free(tmp_prop2);
   }
-  return client_msg(disp, win, "_NET_WM_STATE", action, (unsigned long)prop1, (unsigned long)prop2, 0, 0);
+  if (client_msg(disp, win, "_NET_WM_STATE", action, (unsigned long) prop1, (unsigned long) prop2, 0, 0)) {
+    return Qtrue;
+  }
+  return Qnil;
 }
 
 static int window_to_desktop (Display *disp, Window win, int desktop)
@@ -998,7 +1001,7 @@ static int window_to_desktop (Display *disp, Window win, int desktop)
   return client_msg(disp, win, "_NET_WM_DESKTOP", (unsigned long)desktop, 0, 0, 0, 0);
 }
 
-static void window_set_title (Display *disp, Window win, char *title, char mode)
+static VALUE window_set_title (Display *disp, Window win, char *title, ID sym_id)
 {
   gchar *title_utf8;
   gchar *title_local;
@@ -1006,115 +1009,38 @@ static void window_set_title (Display *disp, Window win, char *title, char mode)
   if (envir_utf8) {
     title_utf8 = g_strdup(title);
     title_local = NULL;
-  }
-  else {
-    if (! (title_utf8 = g_locale_to_utf8(title, -1, NULL, NULL, NULL))) {
+  } else {
+    if (!(title_utf8 = g_locale_to_utf8(title, -1, NULL, NULL, NULL))) {
       title_utf8 = g_strdup(title);
     }
     title_local = g_strdup(title);
   }
 
-  if (mode == 'T' || mode == 'N') {
+  if ((sym_id == id_set_title_both) || (sym_id == id_set_title_long)) {
     /* set name */
     if (title_local) {
-      XChangeProperty(disp, win, XA_WM_NAME, XA_STRING, 8, PropModeReplace,
-		      (const unsigned char *)title_local, strlen(title_local));
-    }
-    else {
+      XChangeProperty(disp, win, XA_WM_NAME, XA_STRING, 8, PropModeReplace, (const unsigned char *) title_local, strlen(title_local));
+    } else {
       XDeleteProperty(disp, win, XA_WM_NAME);
     }
-    XChangeProperty(disp, win, XInternAtom(disp, "_NET_WM_NAME", False),
-		    XInternAtom(disp, "UTF8_STRING", False), 8, PropModeReplace,
-		    (const unsigned char *)title_utf8, strlen(title_utf8));
+    XChangeProperty(disp, win, XInternAtom(disp, "_NET_WM_NAME", False), XInternAtom(disp, "UTF8_STRING", False), 8, PropModeReplace, (const unsigned char *) title_utf8, strlen(title_utf8));
   }
 
-  if (mode == 'T' || mode == 'I') {
+  if ((sym_id == id_set_title_both) || (sym_id == id_set_title_short)) {
     /* set icon name */
     if (title_local) {
-      XChangeProperty(disp, win, XA_WM_ICON_NAME, XA_STRING, 8, PropModeReplace,
-		      (const unsigned char *)title_local, strlen(title_local));
-    }
-    else {
+      XChangeProperty(disp, win, XA_WM_ICON_NAME, XA_STRING, 8, PropModeReplace, (const unsigned char *) title_local, strlen(title_local));
+    } else {
       XDeleteProperty(disp, win, XA_WM_ICON_NAME);
     }
-    XChangeProperty(disp, win, XInternAtom(disp, "_NET_WM_ICON_NAME", False),
-		    XInternAtom(disp, "UTF8_STRING", False), 8, PropModeReplace,
-		    (const unsigned char *)title_utf8, strlen(title_utf8));
+    XChangeProperty(disp, win, XInternAtom(disp, "_NET_WM_ICON_NAME", False), XInternAtom(disp, "UTF8_STRING", False), 8, PropModeReplace, (const unsigned char *) title_utf8, strlen(title_utf8));
   }
 
   g_free(title_utf8);
-  g_free(title_local);
-}
-
-static int action_window (Display *disp, Window win, char mode, int argc, VALUE *argv)
-{
-  p_verbose("Using window: 0x%.8lx\n", win);
-  switch (mode) {
-  case 'a':
-    if (argc == 0) {
-      return activate_window(disp, win, TRUE);
-    }
-    break;
-  case 'c':
-    if (argc == 0) {
-      return close_window(disp, win);
-    }
-    break;
-  case 'e':
-    /* resize/move the window around the desktop => -r -e */
-    if (argc == 5) {
-      int grav, x, y, w, h;
-      grav = FIX2INT(argv[0]);
-      x = FIX2INT(argv[1]);
-      y = FIX2INT(argv[2]);
-      w = FIX2INT(argv[3]);
-      h = FIX2INT(argv[4]);
-      if (grav >= 0) {
-	return window_move_resize(disp, win, grav, x, y, w, h);
-      }
-    }
-    break;
-  case 'b':
-    /* change state of a window => -r -b */
-    if (argc == 2 || argc == 3) {
-      const char *action, *prop1, *prop2;
-      action = StringValuePtr(argv[0]);
-      prop1 = StringValuePtr(argv[1]);
-      if (argc == 3) {
-	prop2 = StringValuePtr(argv[2]);	
-      } else {
-	prop2 = NULL;
-      }
-      return window_state(disp, win, action, prop1, prop2);
-    }
-    break;
-  case 't':
-    /* move the window to the specified desktop => -r -t */
-    if (argc == 1) {
-      return window_to_desktop(disp, win, FIX2INT(argv[0]));
-    }
-    break;
-  case 'R':
-    /* move the window to the current desktop and activate it => -r */
-    if (argc == 0) {
-      if (window_to_desktop(disp, win, -1)) {
-	usleep(100000); /* 100 ms - make sure the WM has enough
-			   time to move the window, before we activate it */
-	return activate_window(disp, win, FALSE);
-      }
-      else {
-	return False;
-      }
-    }
-    break;
-  case 'N': case 'I': case 'T':
-    if (argc == 1) {
-      window_set_title(disp, win, StringValuePtr(argv[0]), mode);
-      return True;
-    }
-    break;
+  if (title_local) {
+    g_free(title_local);
   }
-  rb_raise(rb_eArgError, "Invalid argument of action_window.");
+  return Qtrue;
 }
 
 static Window Select_Window(Display *dpy)
@@ -1272,8 +1198,7 @@ static Window get_target_window (Display *disp, VALUE obj)
     See also http://standards.freedesktop.org/wm-spec/wm-spec-latest.html
 */
 static VALUE rb_wmctrl_action_window(int argc, VALUE *argv, VALUE self) {
-  Window wid;
-  int mode;
+  Window win;
   ID sym_id;
   Display **ptr, *disp;
   Data_Get_Struct(self, Display*, ptr);
@@ -1281,34 +1206,69 @@ static VALUE rb_wmctrl_action_window(int argc, VALUE *argv, VALUE self) {
   if (argc < 2) {
     rb_raise(rb_eArgError, "Need more than one argument.");
   }
-  wid = get_target_window(disp, argv[0]);
+  win = get_target_window(disp, argv[0]);
   sym_id = SYM2ID(argv[1]);
+  argc = argc - 2;
+  argv = argv + 2;
+  p_verbose("Using window: 0x%.8lx\n", win);
   if (sym_id == id_activate) {
-    mode = 'a';
+    if (argc == 0) {
+      return activate_window(disp, win, TRUE);
+    }
   } else if (sym_id == id_close) {
-    mode = 'c';
+    if (argc == 0) {
+      return close_window(disp, win);
+    }
   } else if (sym_id == id_move_resize) {
-    mode = 'e';
+    /* resize/move the window around the desktop => -r -e */
+    if (argc == 5) {
+      int grav, x, y, w, h;
+      grav = FIX2INT(argv[0]);
+      x = FIX2INT(argv[1]);
+      y = FIX2INT(argv[2]);
+      w = FIX2INT(argv[3]);
+      h = FIX2INT(argv[4]);
+      if (grav >= 0) {
+	return window_move_resize(disp, win, grav, x, y, w, h);
+      }
+    }
   } else if (sym_id == id_change_state) {
-    mode = 'b';
+    /* change state of a window => -r -b */
+    if (argc == 2 || argc == 3) {
+      const char *action, *prop1, *prop2;
+      action = StringValuePtr(argv[0]);
+      prop1 = StringValuePtr(argv[1]);
+      if (argc == 3) {
+	prop2 = StringValuePtr(argv[2]);
+      } else {
+	prop2 = NULL;
+      }
+      return change_window_state(disp, win, action, prop1, prop2);
+    }
   } else if (sym_id == id_move_to_desktop) {
-    mode = 't';
+    /* move the window to the specified desktop => -r -t */
+    if (argc == 1) {
+      if (window_to_desktop(disp, win, FIX2INT(argv[0]))) {
+        return Qtrue;
+      }
+      return Qfalse;
+    }
   } else if (sym_id == id_move_to_current) {
-    mode = 'R';
-  } else if (sym_id == id_set_title_long) {
-    mode = 'N';
-  } else if (sym_id == id_set_title_short) {
-    mode = 'I';
-  } else if (sym_id == id_set_title_both) {
-    mode = 'T';
-  } else {
-    rb_raise(rb_eStandardError, "Invalid argument of action_window.");
+    /* move the window to the current desktop and activate it => -r */
+    if (argc == 0) {
+      if (window_to_desktop(disp, win, -1)) {
+	usleep(100000);
+        /* 100 ms - make sure the WM has enough time to move the window, before we activate it */
+	return activate_window(disp, win, FALSE);
+      }
+      return Qfalse;
+    }
+  } else if (sym_id == id_set_title_long || sym_id == id_set_title_short || sym_id == id_set_title_both) {
+    if (argc == 1) {
+      return window_set_title(disp, win, StringValuePtr(argv[0]), sym_id);
+    }
   }
-  if (action_window(disp, wid, mode, argc - 2, (argv + 2))) {
-    return Qtrue;
-  } else {
-    return Qfalse;
-  }
+  rb_raise(rb_eStandardError, "Invalid argument of action_window.");
 }
 
 /*
