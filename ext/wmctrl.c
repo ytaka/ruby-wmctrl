@@ -907,7 +907,7 @@ static gboolean wm_supports (Display *disp, const gchar *prop)
 static VALUE window_move_resize (Display *disp, Window win, signed long grav, signed long x, signed long y, signed long w, signed long h)
 {
   p_verbose("move_resize: %lu %ld %ld %ld %ld\n", grav, x, y, w, h);
-  if (wm_supports(disp, "_NET_MOVERESIZE_WINDOW")) {
+  if ((grav >= 0) && wm_supports(disp, "_NET_MOVERESIZE_WINDOW")) {
     unsigned long grflags;
     grflags = grav;
     if (x != -1) {
@@ -1228,9 +1228,7 @@ static VALUE rb_wmctrl_action_window(int argc, VALUE *argv, VALUE self) {
       y = FIX2INT(argv[2]);
       w = FIX2INT(argv[3]);
       h = FIX2INT(argv[4]);
-      if (grav >= 0) {
-	return window_move_resize(disp, win, grav, x, y, w, h);
-      }
+      return window_move_resize(disp, win, grav, x, y, w, h);
     }
   } else if (sym_id == id_change_state) {
     /* change state of a window => -r -b */

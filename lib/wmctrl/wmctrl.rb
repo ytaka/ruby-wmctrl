@@ -1,6 +1,19 @@
 require 'wmctrl.so'
 
 class WMCtrl
+  NOT_USE_NET_MOVERESIZE_WINDOW = -1
+  GRAVITY_DEFAULT = 0
+  GRAVITY_NORTH_WEST = 1
+  GRAVITY_NORTH = 2
+  GRAVITY_NORTH_EAST = 3
+  GRAVITY_WEST = 4
+  GRAVITY_CENTER = 5
+  GRAVITY_EAST = 6
+  GRAVITY_SOUTH_WEST = 7
+  GRAVITY_SOUTH = 8
+  GRAVITY_SOUTH_EAST = 9
+  GRAVITY_STATIC = 10
+
   def self.instance
     @wmctrl ||= self.new
   end
@@ -142,6 +155,9 @@ class WMCtrl
     # @option opts [Integer] :width Width of window
     # @option opts [Integer] :height Height of window
     # @option opts [Integer,:current] :desktop Desktop number
+    # @option opts [Integer] :gravity Number meaning gravity: NOT_USE_NET_MOVERESIZE_WINDOW,
+    #   GRAVITY_DEFAULT, GRAVITY_NORTH_WEST, GRAVITY_NORTH, GRAVITY_NORTH_EAST, GRAVITY_WEST, GRAVITY_CENTER,
+    #   GRAVITY_EAST, GRAVITY_SOUTH_WEST, GRAVITY_SOUTH, GRAVITY_SOUTH_EAST, GRAVITY_STATIC
     def place(opts = {})
       if opts[:desktop]
         if opts[:desktop] == :current
@@ -150,6 +166,7 @@ class WMCtrl
           action(:move_to_desktop, opts[:desktop])
         end
       end
+      gravity = opts[:gravity] || GRAVITY_DEFAULT
       x = self[:exterior_frame][0]
       y = self[:exterior_frame][1]
       width = self[:exterior_frame][2]
@@ -160,7 +177,7 @@ class WMCtrl
       height = opts[:height] if opts[:height] && (opts[:height] != height)
       x = opts[:x] if opts[:x] && (opts[:x] != x)
       y = opts[:y] if opts[:y] && (opts[:y] != y)
-      action(:move_resize, 0, x + self[:frame_extents][0], y + self[:frame_extents][1], width - extent_horizontal, height - extent_vertical)
+      action(:move_resize, gravity, x + self[:frame_extents][0], y + self[:frame_extents][1], width - extent_horizontal, height - extent_vertical)
     end
 
     def position
