@@ -15,6 +15,16 @@ describe WMCtrl do
     wins.each do |w|
       expect(w).to be_an_instance_of Hash
     end
+    wins = wm.list_windows(true)
+    expect(wins).to be_an_instance_of Array
+    wins.each do |w|
+      expect(w).to be_an_instance_of Hash
+    end
+    wins = wm.list_windows(true, true)
+    expect(wins).to be_an_instance_of Array
+    wins.each do |w|
+      expect(w).to be_an_instance_of Hash
+    end
   end
 
   it "should get an array of hashes." do

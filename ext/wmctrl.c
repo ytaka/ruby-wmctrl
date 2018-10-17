@@ -32,7 +32,7 @@ static int client_msg(Display *disp, Window win, const char *msg,
 		      unsigned long data4);
 static gchar *get_property (Display *disp, Window win,
 			    Atom xa_prop_type, const gchar *prop_name, unsigned long *size);
-static Window *get_client_list (Display *disp, unsigned long *size);
+static Window *get_client_list (Display *disp, unsigned long *size, gboolean stacking_order);
 static gchar *get_window_class (Display *disp, Window win);
 static gchar *get_window_title (Display *disp, Window win);
 static VALUE activate_window (Display *disp, Window win, gboolean switch_desktop);
@@ -166,21 +166,23 @@ static gchar *get_property (Display *disp, Window win,
   return ret;
 }
 
-static Window *get_client_list (Display *disp, unsigned long *size)
+static Window *get_client_list (Display *disp, unsigned long *size, gboolean stacking_order)
 {
   Window *client_list;
-
-  if ((client_list = (Window *)get_property(disp, DefaultRootWindow(disp),
-  					    XA_WINDOW, "_NET_CLIENT_LIST", size)) == NULL) {
-    if ((client_list = (Window *)get_property(disp, DefaultRootWindow(disp),
-  					      XA_CARDINAL, "_WIN_CLIENT_LIST", size)) == NULL) {
-      fputs("Cannot get client list properties. \n"
-  	    "(_NET_CLIENT_LIST or _WIN_CLIENT_LIST)"
-  	    "\n", stderr);
-      return NULL;
+  if (stacking_order) {
+    client_list = (Window *)get_property(disp, DefaultRootWindow(disp), XA_WINDOW, "_NET_CLIENT_LIST_STACKING", size);
+  } else {
+    client_list = (Window *)get_property(disp, DefaultRootWindow(disp), XA_WINDOW, "_NET_CLIENT_LIST", size);
+    if (client_list == NULL) {
+      client_list = (Window *)get_property(disp, DefaultRootWindow(disp), XA_CARDINAL, "_WIN_CLIENT_LIST", size);
     }
   }
-
+  if (client_list == NULL) {
+    fputs("Cannot get client list properties. \n"
+          "(_NET_CLIENT_LIST or _WIN_CLIENT_LIST)"
+          "\n", stderr);
+    return NULL;
+  }
   return client_list;
 }
 
@@ -391,14 +393,15 @@ static VALUE rb_wmctrl_list_windows (int argc, VALUE *argv, VALUE self) {
   Window window_active;
   unsigned long client_list_size;
   unsigned int i;
-  int get_state;
-  VALUE get_state_obj, window_ary;
+  int get_state, stacking_order;
+  VALUE get_state_obj, stacking_order_obj, window_ary;
   Data_Get_Struct(self, Display*, ptr);
   disp = *ptr;
-  rb_scan_args(argc, argv, "01", &get_state_obj);
+  rb_scan_args(argc, argv, "02", &get_state_obj, &stacking_order_obj);
   get_state = RTEST(get_state_obj);
+  stacking_order = RTEST(stacking_order_obj);
 
-  if ((client_list = get_client_list(disp, &client_list_size)) == NULL) {
+  if ((client_list = get_client_list(disp, &client_list_size, stacking_order)) == NULL) {
     /* return EXIT_FAILURE; */
     return Qfalse;
   }
