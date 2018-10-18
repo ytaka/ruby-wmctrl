@@ -19,6 +19,7 @@ Gem::Specification.new do |spec|
   spec.extensions    = Dir.glob("ext/**/extconf.rb")
 
   # specify any dependencies here; for example:
+  spec.add_development_dependency "rake"
   spec.add_development_dependency "rspec"
   spec.add_development_dependency "yard"
   spec.add_runtime_dependency "pkg-config"
