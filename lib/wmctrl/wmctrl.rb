@@ -191,16 +191,26 @@ class WMCtrl
     list_desktops.map { |hash| WMCtrl::Desktop.new(hash) }
   end
 
+  # @overload windows(*conditions, opts = {}, &block)
   # @param [Array] conditions An array of condition hash.
   #   The keys of the hash are keys of WMCtrl::Window#[].
   #   The values of the hash are tested by the method ===.
   #   Keys of each condition are combined by logical product and
   #   all conditions are combined by logical sum.
+  # @param [Hash] opts Options
+  # @option opts [Integer] :order Order of windows: :mapping or :stacking
   # @yield [WMCtrl::Window] Test window by block
   # @return [Array] An array of WMCtrl::Window including windows
   #   matched by the conditions and the block.
   def windows(*conditions, &block)
-    wins = list_windows(true).map { |hash| WMCtrl::Window.new(hash) }
+    cond_last = conditions.last || {}
+    if cond_last[:order] && (cond_last[:order] == :stacking)
+      conditions.pop
+      wins = list_windows(true, true)
+    else
+      wins = list_windows(true, nil)
+    end
+    wins.map! { |hash| WMCtrl::Window.new(hash) }
     unless conditions.empty?
       wins_selected = []
       conditions.each do |condition|
@@ -220,5 +230,25 @@ class WMCtrl
       wins.delete_if { |win| !yield(win) }
     end
     wins
+  end
+
+  WAIT_CHANGE_STACKING_ORDER = 0.01
+
+  # @param [Hash] opts Options
+  # @option opts [Float] :waiting_time Time to wait restack request
+  def restack(wins_bottom_to_top, opts = {})
+    win_upper = nil
+    waiting_time = opts[:sleep] || WAIT_CHANGE_STACKING_ORDER
+    wins_bottom_to_top.reverse.each do |win|
+      next if win.sticky?
+      if win_upper
+        # 1 means below
+        WMCtrl.instance.client_msg(win.id, "_NET_RESTACK_WINDOW", 2, win_upper.id, 1, 0, 0)
+        # If there is no sleep, change the stacking order fails.
+        # Can we use _NET_WM_SYNC_REQUEST?
+        sleep(waiting_time)
+      end
+      win_upper = win
+    end
   end
 end

@@ -107,6 +107,25 @@ static int client_msg(Display *disp, Window win, const char *msg,
   return True;
 }
 
+static VALUE rb_client_msg(VALUE self, VALUE win_id_obj, VALUE msg_obj, VALUE data0_obj, VALUE data1_obj, VALUE data2_obj, VALUE data3_obj, VALUE data4_obj)
+{
+  Display **ptr, *disp;
+  Window win_id;
+  char *msg;
+  unsigned long data0, data1, data2, data3, data4;
+  win_id = (Window) NUM2LONG(win_id_obj);
+  Data_Get_Struct(self, Display*, ptr);
+  disp = *ptr;
+  msg = StringValuePtr(msg_obj);
+  data0 = (Window) NUM2ULONG(data0_obj);
+  data1 = (Window) NUM2ULONG(data1_obj);
+  data2 = (Window) NUM2ULONG(data2_obj);
+  data3 = (Window) NUM2ULONG(data3_obj);
+  data4 = (Window) NUM2ULONG(data4_obj);
+  client_msg(disp, win_id, msg, data0, data1, data2, data3, data4);
+  return Qtrue;
+}
+
 /* Copy from debian package for 64bit support. */
 static gchar *get_property (Display *disp, Window win,
 			    Atom xa_prop_type, const gchar *prop_name, unsigned long *size)
@@ -380,7 +399,7 @@ static VALUE get_window_hash_data (Window win, Display *disp, Window window_acti
 }
 
 /*
-  @overload list_windows(get_state = nil)
+  @overload list_windows(get_state = nil, stacking_order = nil)
 
   Get list of information of windows.
   @param get_state [Boolean] If the value is true then we get some properties at the same time
@@ -1310,6 +1329,7 @@ void Init_wmctrl()
   rb_define_alloc_func(rb_wmctrl_class, rb_wmctrl_alloc);
   rb_define_private_method(rb_wmctrl_class, "initialize", rb_wmctrl_initialize, -1);
 
+  rb_define_method(rb_wmctrl_class, "client_msg", rb_client_msg, 7);
   rb_define_method(rb_wmctrl_class, "list_windows", rb_wmctrl_list_windows, -1);
   rb_define_method(rb_wmctrl_class, "get_window_data", rb_wmctrl_get_window_data, 1);
   rb_define_method(rb_wmctrl_class, "list_desktops", rb_wmctrl_list_desktops, 0);
