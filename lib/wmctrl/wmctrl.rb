@@ -80,7 +80,7 @@ class WMCtrl
 
   class Window < DataHash
     [:id, :title, :active, :desktop, :client_machine,
-     :pid, :geometry, :state, :exterior_frame, :frame_extents, :strut].each do |key|
+     :pid, :geometry, :state, :exterior_frame, :frame_extents, :strut, :display].each do |key|
       define_method(key) do
         self[key]
       end
