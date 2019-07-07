@@ -16,7 +16,7 @@ class WMCtrl
 
   @wmctrl = {}
 
-  def self.display
+  def self.instance
     STDERR.puts "WMCtrl.instance is deprecated. Please use WMCtrl.display alternatively."
     self.display
   end
