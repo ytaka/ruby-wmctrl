@@ -111,4 +111,4 @@ Copyright (C) 2003
 
 ### ruby-wmctrl
 
-Takayuki YAMAGUCHI d@ytak.info Copyright (C) 2011
+Takayuki YAMAGUCHI d@ytak.info Copyright (C) 2011-2019
