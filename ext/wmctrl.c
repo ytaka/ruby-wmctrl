@@ -48,7 +48,7 @@ static Window get_target_window (Display *disp, VALUE obj);
 
 
 static VALUE rb_wmctrl_class, key_id, key_title, key_pid, key_geometry,
-  key_active, key_class, key_client_machine, key_desktop,
+  key_display, key_active, key_class, key_client_machine, key_desktop,
   key_viewport, key_workarea, key_current, key_showing_desktop, key_name,
   key_state, key_window_type, key_frame_extents, key_strut, key_exterior_frame;
 
@@ -60,7 +60,9 @@ static void rb_wmctrl_free (void **ptr)
 {
   Display **disp;
   disp = (Display **) ptr;
-  XCloseDisplay(*disp);
+  if (*disp) {
+    XCloseDisplay(*disp);
+  }
   free(ptr);
 }
 
@@ -72,12 +74,33 @@ static VALUE rb_wmctrl_alloc(VALUE self)
 
 static VALUE rb_wmctrl_initialize(int argc, VALUE *argv, VALUE self)
 {
+  char *display_name = NULL;
   Display **ptr;
   Data_Get_Struct(self, Display*, ptr);
-  if (! (*ptr = XOpenDisplay(NULL))) {
-    rb_raise(rb_eStandardError, "Cannot open display.\n");
+  if (argc > 0) {
+    display_name = StringValuePtr(argv[0]);
+  }
+  if (!(*ptr = XOpenDisplay(display_name))) {
+    if (display_name) {
+      rb_raise(rb_eStandardError, "Cannot open display %s", display_name);
+    } else {
+      rb_raise(rb_eStandardError, "Cannot open display");
+    }
   }
   return self;
+}
+
+/*
+  Get display name.
+
+  @return [String] A name of display.
+*/
+static VALUE rb_wmctrl_get_display_name (VALUE self) {
+  char *display_name;
+  Display **ptr;
+  Data_Get_Struct(self, Display*, ptr);
+  display_name = DisplayString(*ptr);
+  return(RB_UTF8_STRING_NEW2(display_name));
 }
 
 static int client_msg(Display *disp, Window win, const char *msg,
@@ -256,7 +279,7 @@ static gchar *get_window_title (Display *disp, Window win)
   return title_utf8;
 }
 
-static VALUE get_window_hash_data (Window win, Display *disp, Window window_active, int get_state)
+static VALUE get_window_hash_data (Window win, Display *disp, Window window_active, int get_state, VALUE display_name)
 {
   VALUE window_obj = rb_hash_new();
   gchar *title_utf8 = get_window_title(disp, win); /* UTF8 */
@@ -271,6 +294,7 @@ static VALUE get_window_hash_data (Window win, Display *disp, Window window_acti
   rb_hash_aset(window_obj, key_id, INT2NUM(win));
   rb_hash_aset(window_obj, key_title, (title_utf8 ? RB_UTF8_STRING_NEW2(title_utf8) : Qnil));
   rb_hash_aset(window_obj, key_class, (class_out ? RB_UTF8_STRING_NEW2(class_out) : Qnil));
+  rb_hash_aset(window_obj, key_display, display_name);
 
   if (window_active == win) {
     rb_hash_aset(window_obj, key_active, Qtrue);
@@ -413,7 +437,7 @@ static VALUE rb_wmctrl_list_windows (int argc, VALUE *argv, VALUE self) {
   unsigned long client_list_size;
   unsigned int i;
   int get_state, stacking_order;
-  VALUE get_state_obj, stacking_order_obj, window_ary;
+  VALUE get_state_obj, stacking_order_obj, window_ary, display_name;
   Data_Get_Struct(self, Display*, ptr);
   disp = *ptr;
   rb_scan_args(argc, argv, "02", &get_state_obj, &stacking_order_obj);
@@ -427,9 +451,10 @@ static VALUE rb_wmctrl_list_windows (int argc, VALUE *argv, VALUE self) {
 
   window_active = get_active_window(disp);
   window_ary = rb_ary_new2(client_list_size);
+  display_name = rb_wmctrl_get_display_name(self);
 
   for (i = 0; i < client_list_size / sizeof(Window); i++) {
-    rb_ary_push(window_ary, get_window_hash_data(client_list[i], disp, window_active, get_state));
+    rb_ary_push(window_ary, get_window_hash_data(client_list[i], disp, window_active, get_state, display_name));
   }
   g_free(client_list);
 
@@ -442,10 +467,12 @@ static VALUE rb_wmctrl_list_windows (int argc, VALUE *argv, VALUE self) {
 static VALUE rb_wmctrl_get_window_data (VALUE self, VALUE win_id_obj) {
   Display **ptr, *disp;
   Window win_id;
+  VALUE display_name;
   win_id = (Window) NUM2LONG(win_id_obj);
   Data_Get_Struct(self, Display*, ptr);
   disp = *ptr;
-  return get_window_hash_data(win_id, disp, -1, TRUE);
+  display_name = rb_wmctrl_get_display_name(self);
+  return get_window_hash_data(win_id, disp, -1, TRUE, display_name);
 }
 
 /*
@@ -1329,6 +1356,7 @@ void Init_wmctrl()
   rb_define_alloc_func(rb_wmctrl_class, rb_wmctrl_alloc);
   rb_define_private_method(rb_wmctrl_class, "initialize", rb_wmctrl_initialize, -1);
 
+  rb_define_method(rb_wmctrl_class, "get_display_name", rb_wmctrl_get_display_name, 0);
   rb_define_method(rb_wmctrl_class, "client_msg", rb_client_msg, 7);
   rb_define_method(rb_wmctrl_class, "list_windows", rb_wmctrl_list_windows, -1);
   rb_define_method(rb_wmctrl_class, "get_window_data", rb_wmctrl_get_window_data, 1);
@@ -1346,6 +1374,7 @@ void Init_wmctrl()
   key_title = ID2SYM(rb_intern("title"));
   key_pid = ID2SYM(rb_intern("pid"));
   key_geometry = ID2SYM(rb_intern("geometry"));
+  key_display = ID2SYM(rb_intern("display"));
   key_active = ID2SYM(rb_intern("active"));
   key_class = ID2SYM(rb_intern("class"));
   key_client_machine = ID2SYM(rb_intern("client_machine"));

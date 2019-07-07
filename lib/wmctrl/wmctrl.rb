@@ -14,13 +14,20 @@ class WMCtrl
   GRAVITY_SOUTH_EAST = 9
   GRAVITY_STATIC = 10
 
+  @wmctrl = {}
+
   def self.display
     STDERR.puts "WMCtrl.instance is deprecated. Please use WMCtrl.display alternatively."
     self.display
   end
 
-  def self.display
-    @wmctrl ||= self.new
+  def self.display(dpy = nil)
+    dpy ||= ENV["DISPLAY"]
+    unless display = @wmctrl[dpy]
+      display = self.new(dpy)
+      @wmctrl[dpy] = display
+    end
+    display
   end
 
   class DataHash
@@ -136,8 +143,9 @@ class WMCtrl
     end
 
     def action(*args)
-      WMCtrl.instance.action_window(self[:id], *args)
-      @data = WMCtrl.instance.get_window_data(self[:id])
+      wmctrl = WMCtrl.display(self[:display])
+      wmctrl.action_window(self[:id], *args)
+      @data = wmctrl.get_window_data(self[:id])
       self
     end
     private :action
@@ -215,7 +223,7 @@ class WMCtrl
     else
       wins = list_windows(true, nil)
     end
-    wins.map! { |hash| WMCtrl::Window.new(hash) }
+    wins.map! { |h| WMCtrl::Window.new(h) }
     unless conditions.empty?
       wins_selected = []
       conditions.each do |condition|
@@ -241,6 +249,7 @@ class WMCtrl
 
   # @param [Hash] opts Options
   # @option opts [Float] :waiting_time Time to wait restack request
+  # @option opts [String] :display Display name
   def restack(wins_bottom_to_top, opts = {})
     win_upper = nil
     waiting_time = opts[:sleep] || WAIT_CHANGE_STACKING_ORDER
@@ -248,7 +257,7 @@ class WMCtrl
       next if win.sticky?
       if win_upper
         # 1 means below
-        WMCtrl.instance.client_msg(win.id, "_NET_RESTACK_WINDOW", 2, win_upper.id, 1, 0, 0)
+        WMCtrl.display(opts[:display]).client_msg(win.id, "_NET_RESTACK_WINDOW", 2, win_upper.id, 1, 0, 0)
         # If there is no sleep, change the stacking order fails.
         # Can we use _NET_WM_SYNC_REQUEST?
         sleep(waiting_time)
