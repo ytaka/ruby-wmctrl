@@ -14,7 +14,12 @@ class WMCtrl
   GRAVITY_SOUTH_EAST = 9
   GRAVITY_STATIC = 10
 
-  def self.instance
+  def self.display
+    STDERR.puts "WMCtrl.instance is deprecated. Please use WMCtrl.display alternatively."
+    self.display
+  end
+
+  def self.display
     @wmctrl ||= self.new
   end
 

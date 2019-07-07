@@ -31,12 +31,12 @@ We load 'wmctrl' as below;
 
 We get desktops and windows as follows;
 
-    pp WMCtrl.instance.desktops
-    pp WMCtrl.instance.windows
+    pp WMCtrl.display.desktops
+    pp WMCtrl.display.windows
 
 We can specify search conditions of windows; for example,
 
-    pp WMCtrl.instance.windows(:wm_class => /^emacs/)
+    pp WMCtrl.display.windows(:wm_class => /^emacs/)
 
 ## Usage (Basic method similar to the command "wmctrl")
 
@@ -47,7 +47,7 @@ but the author think that these methods may be changed in future release.
 
     require 'wmctrl'
     require 'pp'
-    wm = WMCtrl.instance
+    wm = WMCtrl.display
     pp wm.list_windows
 
 If you want to get properties of windows, you pass true as an argument.

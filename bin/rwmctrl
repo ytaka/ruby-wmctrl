@@ -143,11 +143,11 @@ MES
   exit(2)
 end
 
-wm = WMCtrl.instance
+wm = WMCtrl.display
 
 # Return first window specified by arg and options
 def specify_window(arg, options)
-  wm = WMCtrl.instance
+  wm = WMCtrl.display
   win = nil
   if arg == ':ACTIVE:'
     win = wm.windows(:active => true).first
